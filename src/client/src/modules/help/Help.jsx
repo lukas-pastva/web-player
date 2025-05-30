@@ -8,47 +8,73 @@ export default function HelpPage() {
 
       <main>
         <section className="card" style={{ maxWidth: "850px" }}>
-          <h2 style={{ marginTop: 0 }}>Welcome to Web-Baby 👶🍼</h2>
+          <h2 style={{ marginTop: 0 }}>Welcome to Web-Player 🎵</h2>
 
           <p>
-            Web-Baby is a tiny <strong>React + Express</strong> app that lets
-            new parents quickly log feeds, visualise intake, and track weight –
-            all in a single container you can self-host anywhere.
+            Web-Player is a tiny <strong>React + Express</strong> application
+            that lets you browse and play your local&nbsp;MP3 collection from
+            any browser.  Just drop your tracks into the Docker image (or mount
+            them at runtime) and press&nbsp;play.
           </p>
 
           <h3>Pages at a glance</h3>
           <ul>
-            <li><strong>Today</strong> – add feeds; stacked bar shows <em>types + total</em>.</li>
-            <li><strong>All&nbsp;days</strong> – full timeline since birth.</li>
-            <li><strong>Weight</strong> – log &amp; visualise daily weight.</li>
-            <li><strong>Config</strong> – theme, baby details, hidden feed types.</li>
-            <li><strong>Help</strong> – you’re here!</li>
+            <li>
+              <strong>Library</strong> – navigate the folder tree and click a
+              track to play it in the built-in HTML&nbsp;audio&nbsp;player.
+            </li>
+            <li>
+              <strong>Config</strong> – switch the accent palette (blue /
+              technical-grey), choose colour-scheme mode, and rename the
+              application.
+            </li>
+            <li>
+              <strong>Help</strong> – this page.
+            </li>
           </ul>
 
           <h3>Keyboard shortcuts</h3>
           <table>
-            <thead><tr><th>Key</th><th>Action</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Key</th>
+                <th>Action</th>
+              </tr>
+            </thead>
             <tbody>
-              <tr><td><kbd>T</kbd></td><td>Today</td></tr>
-              <tr><td><kbd>A</kbd></td><td>All&nbsp;days</td></tr>
-              <tr><td><kbd>C</kbd></td><td>Config</td></tr>
-              <tr><td><kbd>W</kbd></td><td>Weight</td></tr>
-              <tr><td><kbd>H</kbd></td><td>Help</td></tr>
+              <tr>
+                <td><kbd>L</kbd></td>
+                <td>Library</td>
+              </tr>
+              <tr>
+                <td><kbd>C</kbd></td>
+                <td>Config</td>
+              </tr>
+              <tr>
+                <td><kbd>H</kbd></td>
+                <td>Help</td>
+              </tr>
             </tbody>
           </table>
 
           <h3>FAQ</h3>
-          <p><strong>❓ How do I change the baby’s name or birth date?</strong><br/>
-             Go to <em>Config</em>, update the fields and click <em>Save</em>.
-             Changes are stored in the database instantly.</p>
+          <p>
+            <strong>❓ Where are my MP3 files stored?</strong><br />
+            By default Web-Player serves everything inside{" "}
+            <code>/app/media</code> <em>inside the container.</em> You can
+            either copy your music there during the Docker build or mount a host
+            folder at runtime with <code>-v /host/music:/app/media</code>.
+          </p>
 
-          <p><strong>❓ Where is my data kept?</strong><br/>
-             Everything lives in a single MariaDB / MySQL database. The Docker
-             image ships with migrations that auto-create the tables on first
-             run.</p>
+          <p>
+            <strong>❓ Can I change the accent colour?</strong><br />
+            Yes – open <em>Config</em> and pick the palette you prefer.
+          </p>
 
-          <p><strong>Need more help?</strong> Open an issue on GitHub – PRs and
-             questions welcome 🙂</p>
+          <p>
+            <strong>Need more help?</strong> Open an issue on GitHub – PRs and
+            questions welcome 🙂
+          </p>
         </section>
       </main>
     </>
