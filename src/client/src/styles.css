@@ -2,14 +2,15 @@
 
 /* ─────────────────────────── theme vars (accent) */
 :root {
-  --accent        : #18be94;      /* boy / teal */
+  --accent        : #3b82f6;      /* primary blue */
   --accent-contr  : #ffffff;
-  --header-bg     : #0f2733;      /* navy */
+  --header-bg     : #1e3a8a;      /* navy-blue header */
 }
-/* girl palette */
+
+/* technical second palette */
 [data-theme="girl"] {
-  --accent    : #e86dbf;
-  --header-bg : #4d2748;
+  --accent    : #6b7280;          /* slate-grey */
+  --header-bg : #1f2937;          /* charcoal */
 }
 
 /* ─────────────────────────── colour-scheme vars  */
@@ -60,7 +61,7 @@ header.mod-header nav a{
   display:inline-block;
   padding:.45rem .9rem;
   border:1px solid var(--accent);
-  border-radius:4px;
+  border-radius:2px;                   /* sharper */
   background:transparent;
   color:var(--accent);
   font-size:1rem;
@@ -90,6 +91,24 @@ header.mod-header nav a.active:hover{
   transition:transform .15s;
 }
 .mode-toggle:hover{ transform: scale(1.15); }
+
+/* ─────────────────────────── breadcrumb / folder buttons */
+.crumb-btn{
+  display:inline-block;
+  margin-right:.25rem;
+  padding:.25rem .55rem;
+  border:1px solid var(--accent);
+  border-radius:2px;
+  background:transparent;
+  color:var(--accent);
+  font-size:.95rem;
+  cursor:pointer;
+  transition:background .15s,color .15s;
+}
+.crumb-btn:hover{
+  background:var(--accent);
+  color:var(--accent-contr);
+}
 
 /* ─────────────────────────── layout */
 main{padding:1rem}
@@ -129,7 +148,7 @@ th,td{padding:.5rem .6rem;text-align:left;font-size:.95rem}
 tbody tr{border-bottom:1px solid var(--border)}
 tbody tr:nth-child(odd){background:var(--row-alt)}
 
-/* feed icons */
+/* feed icons (kept for legacy config page) */
 .feed-icon{font-size:1.25rem;margin-right:.25rem;vertical-align:text-bottom}
 
 /* alerts & spinner */
@@ -147,16 +166,9 @@ tbody tr:nth-child(odd){background:var(--row-alt)}
 @keyframes fadeout{0%,90%{opacity:1}100%{opacity:0}}
 
 /* ─────────────────────────── Config page */
-.config-wrap{
-  max-width:800px;          /* was 500px */
-  margin:0;                 /* flush-left */
-}
-.config-types{list-style:none;padding:0;text-align:center}
-.config-types li{display:inline-block;margin:0 .75rem .4rem}
-
-/* mobile tweaks */
+.config-wrap{max-width:600px;margin:0}
 @media(max-width:600px){
   html{font-size:92%}
   header.mod-header h1{font-size:1.25rem}
-  .config-wrap{max-width:100%;}          /* still fluid on phones */
+  .config-wrap{max-width:100%}
 }
