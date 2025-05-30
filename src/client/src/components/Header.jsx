@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { differenceInCalendarDays, startOfToday } from "date-fns";
 import { loadConfig, saveConfig, storedMode } from "../config.js";
 
-/* helper – map “auto” to actual light/dark every call */
 function applyMode(mode) {
   let real = mode;
   if (mode === "auto") {
@@ -12,23 +10,12 @@ function applyMode(mode) {
   document.documentElement.setAttribute("data-mode", real);
 }
 
-export default function Header({ showMeta = true }) {
+export default function Header({ showMeta = false }) {
   const p = window.location.pathname;
 
-  const {
-    childName = "",
-    childSurname = "",
-    birthTs,
-    appTitle: title = "Web-Player",
-  } = loadConfig();
+  const { appTitle: title = "Web-Player" } = loadConfig();
 
-  /* age in days (still used on baby pages) */
-  const birthDate = birthTs ? new Date(birthTs) : null;
-  const ageText = birthDate
-    ? `${differenceInCalendarDays(startOfToday(), birthDate)} days`
-    : "";
-
-  /* ── colour-mode toggle ─────────────────────────────────────────── */
+  /* ── colour-scheme toggle ─────────────────────────────────────── */
   const [mode, setMode] = useState(storedMode());
 
   useEffect(() => {
@@ -46,41 +33,30 @@ export default function Header({ showMeta = true }) {
   }
 
   const modeIcon = mode === "light" ? "☀️" : mode === "dark" ? "🌙" : "🌓";
-  const child    = `${childName} ${childSurname}`.trim();
 
   return (
     <header className="mod-header">
       <h1>{title}</h1>
 
       <nav className="nav-center">
-        {/* NEW: Media library */}
-        <a href="/media" className={p.startsWith("/media") ? "active" : ""}>
+        <a href="/media"  className={p.startsWith("/media")  ? "active" : ""}>
           Library
         </a>
-
-        {/* legacy links */}
-        <a href="/milking"     className={p === "/milking" ? "active" : ""}>Today</a>
-        <a href="/milking/all" className={p.startsWith("/milking/all") ? "active" : ""}>
-          All&nbsp;days
+        <a href="/config" className={p === "/config" ? "active" : ""}>
+          Config
         </a>
-        <a href="/weight"  className={p === "/weight" ? "active" : ""}>Weight</a>
-        <a href="/config"  className={p === "/config" ? "active" : ""}>Config</a>
-        <a href="/help"    className={p === "/help"   ? "active" : ""}>Help</a>
+        <a href="/help"   className={p === "/help"   ? "active" : ""}>
+          Help
+        </a>
       </nav>
 
-      <div style={{ display:"flex", alignItems:"center", gap:".9rem" }}>
-        <button className="mode-toggle" onClick={toggleMode} aria-label="Toggle colour mode">
-          {modeIcon}
-        </button>
-
-        {showMeta && (child || ageText) && (
-          <div className="meta" style={{ textAlign:"right", lineHeight:1.2 }}>
-            {child && <strong>{child}</strong>}
-            {child && ageText && <br />}
-            {ageText && <small>{ageText}</small>}
-          </div>
-        )}
-      </div>
+      <button
+        className="mode-toggle"
+        onClick={toggleMode}
+        aria-label="Toggle colour mode"
+      >
+        {modeIcon}
+      </button>
     </header>
   );
 }
