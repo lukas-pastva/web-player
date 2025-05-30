@@ -8,12 +8,12 @@ import milkingRoutes  from "./modules/milking/routes.js";
 import { syncAll }    from "./modules/milking/seed.js";
 import weightRoutes   from "./modules/weight/routes.js";
 import { syncWeight } from "./modules/weight/seed.js";
-
-/* ─── config module ─────────────────────────────────────────────── */
 import configRoutes   from "./modules/config/routes.js";
 import { syncConfig } from "./modules/config/seed.js";
 
-/* ─── bootstrap ─────────────────────────────────────────────────── */
+/* ─── NEW: media module ──────────────────────────────────────────── */
+import mediaRoutes    from "./modules/media/routes.js";
+
 dotenv.config();
 await Promise.all([syncAll(), syncWeight(), syncConfig()]);
 
@@ -28,12 +28,22 @@ app.use(express.json());
 app.use(milkingRoutes);
 app.use(weightRoutes);
 app.use(configRoutes);
+app.use(mediaRoutes);                       // ← NEW
 
-/* static SPA */
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+/* static SPA + raw media files ------------------------------------ */
+const __dirname  = path.dirname(fileURLToPath(import.meta.url));
+const mediaRoot  = process.env.MEDIA_ROOT
+  ? path.resolve(process.env.MEDIA_ROOT)
+  : path.join(__dirname, "../../media");
+
+app.use("/media", express.static(mediaRoot));   // exposes files
+
 app.use(express.static(path.join(__dirname, "../public")));
 app.get("*", (_req, res) =>
   res.sendFile(path.join(__dirname, "../public/index.html"))
 );
 
-app.listen(port, () => console.log(`Web-Baby listening on ${port}`));
+app.listen(port, () => {
+  console.log(`Web-Player listening on ${port}`);
+  console.log(`Serving media from: ${mediaRoot}`);
+});

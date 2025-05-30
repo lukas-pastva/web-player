@@ -12,13 +12,12 @@ const DEFAULT_CFG = {
   childName    : "",
   childSurname : "",
   birthTs      : "",
-  appTitle     : "Web-Baby",
+  appTitle     : "Web-Player",        // ← updated default
   birthWeightGrams: null,
 };
 
 let CACHE = { ...DEFAULT_CFG };
 
-/* pulls (or creates) the single config row */
 export async function initConfig() {
   try {
     const r = await fetch("/api/config");
@@ -28,21 +27,17 @@ export async function initConfig() {
     CACHE = { ...DEFAULT_CFG };
   }
 }
-
-export function loadConfig() { return CACHE; }
-
-/* helpers ---------------------------------------------------------- */
-export function effectiveTheme(fallback="boy") { return CACHE.theme ?? fallback; }
-export function effectiveMode (fallback="light") { return CACHE.mode  ?? fallback; }
-export function storedMode()  { return CACHE.mode ?? "auto"; }
-export function isTypeEnabled(t) { return !CACHE.disabledTypes.includes(t); }
-export function birthTimestamp() { return CACHE.birthTs || null; }
+export function loadConfig()       { return CACHE; }
+export function effectiveTheme(f="boy")  { return CACHE.theme ?? f; }
+export function effectiveMode (f="light"){ return CACHE.mode  ?? f; }
+export function storedMode()             { return CACHE.mode ?? "auto"; }
+export function isTypeEnabled(t)         { return !CACHE.disabledTypes.includes(t); }
+export function birthTimestamp()         { return CACHE.birthTs || null; }
 export function birthWeight() {
   return Number.isFinite(CACHE.birthWeightGrams) ? CACHE.birthWeightGrams : null;
 }
-export function appTitle() { return CACHE.appTitle || "Web-Baby"; }
+export function appTitle()               { return CACHE.appTitle || "Web-Player"; }
 
-/* save to DB and cache locally */
 export async function saveConfig(partial) {
   CACHE = { ...CACHE, ...partial };
   await fetch("/api/config", {

@@ -19,19 +19,18 @@ export default function Header({ showMeta = true }) {
     childName = "",
     childSurname = "",
     birthTs,
-    appTitle: title = "Web-Baby",
+    appTitle: title = "Web-Player",
   } = loadConfig();
 
-  /* age in days */
+  /* age in days (still used on baby pages) */
   const birthDate = birthTs ? new Date(birthTs) : null;
   const ageText = birthDate
     ? `${differenceInCalendarDays(startOfToday(), birthDate)} days`
     : "";
 
-  /* ── colour-mode toggle ────────────────────────────────────────── */
+  /* ── colour-mode toggle ─────────────────────────────────────────── */
   const [mode, setMode] = useState(storedMode());
 
-  /* keep auto synced every 30 min */
   useEffect(() => {
     if (mode !== "auto") return;
     const id = setInterval(() => applyMode("auto"), 30 * 60 * 1000);
@@ -46,62 +45,36 @@ export default function Header({ showMeta = true }) {
     applyMode(next);
   }
 
-  /* clear, state-reflecting icon */
-  const modeIcon =
-    mode === "light" ? "☀️" : mode === "dark" ? "🌙" : "🌓";
+  const modeIcon = mode === "light" ? "☀️" : mode === "dark" ? "🌙" : "🌓";
+  const child    = `${childName} ${childSurname}`.trim();
 
-  const child = `${childName} ${childSurname}`.trim();
-
-  /* ── UI ────────────────────────────────────────────────────────── */
   return (
     <header className="mod-header">
       <h1>{title}</h1>
 
       <nav className="nav-center">
-        <a
-          href="/milking"
-          className={p === "/milking" ? "active" : ""}
-        >
-          Today
+        {/* NEW: Media library */}
+        <a href="/media" className={p.startsWith("/media") ? "active" : ""}>
+          Library
         </a>
-        <a
-          href="/milking/all"
-          className={p.startsWith("/milking/all") ? "active" : ""}
-        >
+
+        {/* legacy links */}
+        <a href="/milking"     className={p === "/milking" ? "active" : ""}>Today</a>
+        <a href="/milking/all" className={p.startsWith("/milking/all") ? "active" : ""}>
           All&nbsp;days
         </a>
-        <a
-          href="/weight"
-          className={p === "/weight" ? "active" : ""}
-        >
-          Weight
-        </a>
-        <a
-          href="/config"
-          className={p === "/config" ? "active" : ""}
-        >
-          Config
-        </a>
-        <a
-          href="/help"
-          className={p === "/help" ? "active" : ""}
-        >
-          Help
-        </a>
+        <a href="/weight"  className={p === "/weight" ? "active" : ""}>Weight</a>
+        <a href="/config"  className={p === "/config" ? "active" : ""}>Config</a>
+        <a href="/help"    className={p === "/help"   ? "active" : ""}>Help</a>
       </nav>
 
-      {/* right-hand block – toggle + meta */}
-      <div style={{ display: "flex", alignItems: "center", gap: ".9rem" }}>
-        <button
-          className="mode-toggle"
-          onClick={toggleMode}
-          aria-label="Toggle colour mode"
-        >
+      <div style={{ display:"flex", alignItems:"center", gap:".9rem" }}>
+        <button className="mode-toggle" onClick={toggleMode} aria-label="Toggle colour mode">
           {modeIcon}
         </button>
 
         {showMeta && (child || ageText) && (
-          <div className="meta" style={{ textAlign: "right", lineHeight: 1.2 }}>
+          <div className="meta" style={{ textAlign:"right", lineHeight:1.2 }}>
             {child && <strong>{child}</strong>}
             {child && ageText && <br />}
             {ageText && <small>{ageText}</small>}
