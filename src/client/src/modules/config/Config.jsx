@@ -7,7 +7,7 @@ export default function ConfigPage() {
 
   /* simple three-field state */
   const [appTitle, setTitle] = useState(initial.appTitle);
-  const [theme,    setTheme] = useState(initial.theme);
+  const [theme,    setTheme] = useState(initial.theme);  // boy|girl → blue|grey
   const [mode,     setMode]  = useState(initial.mode);
   const [saved,    setSaved] = useState(false);
 
@@ -40,24 +40,54 @@ export default function ConfigPage() {
 
           {/* theme */}
           <h3>Theme (accent colour)</h3>
-          <label><input type="radio" name="theme" value="boy"
-            checked={theme==="boy"} onChange={()=>setTheme("boy")}/> Teal</label>
+          <label>
+            <input
+              type="radio" name="theme" value="boy"
+              checked={theme==="boy"}
+              onChange={()=>setTheme("boy")}
+            />{" "}
+            Blue
+          </label>
           {"  "}
-          <label><input type="radio" name="theme" value="girl"
-            checked={theme==="girl"} onChange={()=>setTheme("girl")}/> Pink</label>
+          <label>
+            <input
+              type="radio" name="theme" value="girl"
+              checked={theme==="girl"}
+              onChange={()=>setTheme("girl")}
+            />{" "}
+            Grey
+          </label>
 
           {/* mode */}
           <h3 style={{ marginTop:"1.2rem" }}>Colour-scheme mode</h3>
-          <label><input type="radio" name="mode" value="light"
-            checked={mode==="light"} onChange={()=>setMode("light")}/> Light</label>
+          <label>
+            <input
+              type="radio" name="mode" value="light"
+              checked={mode==="light"}
+              onChange={()=>setMode("light")}
+            />{" "}
+            Light
+          </label>
           {"  "}
-          <label><input type="radio" name="mode" value="dark"
-            checked={mode==="dark"}  onChange={()=>setMode("dark")}/> Dark</label>
+          <label>
+            <input
+              type="radio" name="mode" value="dark"
+              checked={mode==="dark"}
+              onChange={()=>setMode("dark")}
+            />{" "}
+            Dark
+          </label>
           {"  "}
-          <label><input type="radio" name="mode" value="auto"
-            checked={mode==="auto"}  onChange={()=>setMode("auto")}/> Auto</label>
+          <label>
+            <input
+              type="radio" name="mode" value="auto"
+              checked={mode==="auto"}
+              onChange={()=>setMode("auto")}
+            />{" "}
+            Auto
+          </label>
 
-          {/* save button */}
+          {/* save */}
           <div style={{ marginTop:"1.2rem" }}>
             <button className="btn" onClick={handleSave}>Save</button>
             {saved && <span className="msg-success">✓ Saved</span>}
