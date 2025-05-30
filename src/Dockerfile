@@ -5,7 +5,6 @@ ENV NPM_CONFIG_LEGACY_PEER_DEPS=true
 COPY client/package*.json ./
 COPY client/vite.config.js ./
 COPY client/src ./src
-COPY client/public ./public
 RUN npm install && npm run build
 
 FROM node:20-alpine
