@@ -5,7 +5,6 @@ import { fileURLToPath } from "url";
 import dotenv   from "dotenv";
 
 import configRoutes from "./modules/config/routes.js";
-import { syncConfig } from "./modules/config/seed.js";
 
 /* ─── NEW: media module only ─────────────────────────────────────── */
 import mediaRoutes  from "./modules/media/routes.js";
