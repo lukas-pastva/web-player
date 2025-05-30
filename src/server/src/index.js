@@ -5,12 +5,9 @@ import { fileURLToPath } from "url";
 import dotenv   from "dotenv";
 
 import configRoutes from "./modules/config/routes.js";
-
-/* ─── NEW: media module only ─────────────────────────────────────── */
 import mediaRoutes  from "./modules/media/routes.js";
 
-dotenv.config();
-await syncConfig();                         // only config remains
+dotenv.config();                                // ⟵ no DB sync needed
 
 const app  = express();
 const port = process.env.PORT || 8080;
@@ -21,7 +18,7 @@ app.use(express.json());
 
 /* API routes */
 app.use(configRoutes);
-app.use(mediaRoutes);                       // ← media only
+app.use(mediaRoutes);
 
 /* static SPA + raw media files ------------------------------------ */
 const __dirname  = path.dirname(fileURLToPath(import.meta.url));
@@ -30,7 +27,6 @@ const mediaRoot  = process.env.MEDIA_ROOT
   : path.join(__dirname, "../../media");
 
 app.use("/media", express.static(mediaRoot));
-
 app.use(express.static(path.join(__dirname, "../public")));
 app.get("*", (_req, res) =>
   res.sendFile(path.join(__dirname, "../public/index.html"))
