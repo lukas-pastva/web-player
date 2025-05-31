@@ -6,7 +6,6 @@
   --accent-contr  : #ffffff;
   --header-bg     : #1e3a8a;      /* navy-blue header */
 }
-
 /* technical second palette */
 [data-theme="girl"] {
   --accent    : #6b7280;          /* slate-grey */
@@ -61,7 +60,7 @@ header.mod-header nav a{
   display:inline-block;
   padding:.45rem .9rem;
   border:1px solid var(--accent);
-  border-radius:2px;                   /* sharper */
+  border-radius:2px;
   background:transparent;
   color:var(--accent);
   font-size:1rem;
@@ -121,6 +120,23 @@ main{padding:1rem}
   overflow:visible;
 }
 
+/* NEW ────────── player box (sticky top) */
+.player-box{
+  position:sticky;
+  top:0;                        /* sits below the header bar */
+  z-index:100;
+  border:2px solid var(--accent);
+  border-radius:8px;
+  margin-bottom:1.5rem;
+}
+
+/* NEW ────────── scrolling list area */
+.scroll-list{
+  max-height:60vh;
+  overflow-y:auto;
+  padding-right:.25rem;
+}
+
 /* buttons / inputs */
 button,input,select{font-size:1rem}
 .btn{
@@ -148,9 +164,6 @@ th,td{padding:.5rem .6rem;text-align:left;font-size:.95rem}
 tbody tr{border-bottom:1px solid var(--border)}
 tbody tr:nth-child(odd){background:var(--row-alt)}
 
-/* feed icons (kept for legacy config page) */
-.feed-icon{font-size:1.25rem;margin-right:.25rem;vertical-align:text-bottom}
-
 /* alerts & spinner */
 .spinner{
   display:inline-block;width:16px;height:16px;
@@ -165,7 +178,7 @@ tbody tr:nth-child(odd){background:var(--row-alt)}
 }
 @keyframes fadeout{0%,90%{opacity:1}100%{opacity:0}}
 
-/* ─────────────────────────── Config page */
+/* Config page width tweak */
 .config-wrap{max-width:600px;margin:0}
 @media(max-width:600px){
   html{font-size:92%}
