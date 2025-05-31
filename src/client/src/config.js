@@ -1,14 +1,13 @@
-/* ───────────────────────────────────────────────────────────────────
- * Minimal front-end configuration – only theme + mode now
- * ─────────────────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────
+ * Minimal front-end config (file-backed on the server)
+ * ────────────────────────────────────────────────────────────── */
 const DEFAULT_CFG = {
-  theme : "boy",    // blue
-  mode  : "auto",   // light | dark | auto
+  theme : "boy",   // blue
+  mode  : "auto",  // light|dark|auto
 };
 
 let CACHE = { ...DEFAULT_CFG };
 
-/* pull config from server (file-backed) */
 export async function initConfig() {
   try {
     const r = await fetch("/api/config");
