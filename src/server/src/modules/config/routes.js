@@ -5,17 +5,12 @@ import { fileURLToPath } from "url";
 
 const r = Router();
 
-/* where we persist the single config object ----------------------- */
+/* persistent JSON file ------------------------------------------- */
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CFG_PATH  = path.join(__dirname, "..", "..", "..", "config.json");
 
-const DEFAULT_CFG = {
-  theme   : "boy",            // teal vs pink palette
-  mode    : "auto",           // light | dark | auto
-  appTitle: "Web-Player",
-};
+const DEFAULT_CFG = { theme:"boy", mode:"auto" };
 
-/* helpers --------------------------------------------------------- */
 async function loadCfg() {
   try { return { ...DEFAULT_CFG, ...(JSON.parse(await fs.readFile(CFG_PATH))) }; }
   catch { return { ...DEFAULT_CFG }; }
@@ -25,15 +20,19 @@ async function saveCfg(cfg) {
   return cfg;
 }
 
-/* GET /api/config ------------------------------------------------- */
+/* GET /api/config */
 r.get("/api/config", async (_req, res) => {
   res.json(await loadCfg());
 });
 
-/* PUT /api/config ------------------------------------------------- */
+/* PUT /api/config */
 r.put("/api/config", async (req, res) => {
   const cur  = await loadCfg();
-  const next = { ...cur, ...req.body };
+  const next = { ...cur };
+
+  if (["boy","girl"].includes(req.body.theme)) next.theme = req.body.theme;
+  if (["light","dark","auto"].includes(req.body.mode))   next.mode  = req.body.mode;
+
   await saveCfg(next);
   res.json(next);
 });
