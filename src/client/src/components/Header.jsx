@@ -11,13 +11,11 @@ function applyMode(mode) {
 }
 
 export default function Header({ showMeta = false }) {
-  const p = window.location.pathname;
-
-  const { appTitle: title = "Web-Player" } = loadConfig();
-
-  /* ── colour-scheme toggle ─────────────────────────────────────── */
+  const p          = window.location.pathname;
+  const title      = window.location.hostname || "Web-Player";
   const [mode, setMode] = useState(storedMode());
 
+  /* keep “auto” synced every 30 min */
   useEffect(() => {
     if (mode !== "auto") return;
     const id = setInterval(() => applyMode("auto"), 30 * 60 * 1000);
@@ -25,10 +23,9 @@ export default function Header({ showMeta = false }) {
   }, [mode]);
 
   function toggleMode() {
-    const next =
-      mode === "light" ? "dark" : mode === "dark" ? "auto" : "light";
+    const next = mode === "light" ? "dark" : mode === "dark" ? "auto" : "light";
     setMode(next);
-    saveConfig({ ...loadConfig(), mode: next });
+    saveConfig({ mode: next });        // only “mode” now
     applyMode(next);
   }
 
@@ -39,22 +36,12 @@ export default function Header({ showMeta = false }) {
       <h1>{title}</h1>
 
       <nav className="nav-center">
-        <a href="/media"  className={p.startsWith("/media")  ? "active" : ""}>
-          Library
-        </a>
-        <a href="/config" className={p === "/config" ? "active" : ""}>
-          Config
-        </a>
-        <a href="/help"   className={p === "/help"   ? "active" : ""}>
-          Help
-        </a>
+        <a href="/media"  className={p.startsWith("/media")  ? "active" : ""}>Library</a>
+        <a href="/config" className={p === "/config" ? "active" : ""}>Config</a>
+        <a href="/help"   className={p === "/help"   ? "active" : ""}>Help</a>
       </nav>
 
-      <button
-        className="mode-toggle"
-        onClick={toggleMode}
-        aria-label="Toggle colour mode"
-      >
+      <button className="mode-toggle" onClick={toggleMode} aria-label="Toggle colour mode">
         {modeIcon}
       </button>
     </header>
