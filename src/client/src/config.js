@@ -1,14 +1,14 @@
-/* ──────────────────────────────────────────────────────────────
- * Minimal front-end config (file-backed on the server)
- * ────────────────────────────────────────────────────────────── */
+/* ───────────────────────────────────────────────────────────────────
+ * Minimal front-end configuration – only theme + mode now
+ * ─────────────────────────────────────────────────────────────────── */
 const DEFAULT_CFG = {
-  theme   : "boy",
-  mode    : "auto",
-  appTitle: "Web-Player",
+  theme : "boy",    // blue
+  mode  : "auto",   // light | dark | auto
 };
 
 let CACHE = { ...DEFAULT_CFG };
 
+/* pull config from server (file-backed) */
 export async function initConfig() {
   try {
     const r = await fetch("/api/config");
@@ -18,11 +18,10 @@ export async function initConfig() {
     CACHE = { ...DEFAULT_CFG };
   }
 }
-export function loadConfig()               { return CACHE; }
-export function effectiveTheme(f="boy")    { return CACHE.theme ?? f; }
-export function effectiveMode (f="light")  { return CACHE.mode  ?? f; }
-export function storedMode()               { return CACHE.mode ?? "auto"; }
-export function appTitle()                 { return CACHE.appTitle || "Web-Player"; }
+export function loadConfig()              { return CACHE; }
+export function effectiveTheme(f="boy")   { return CACHE.theme ?? f; }
+export function effectiveMode (f="light") { return CACHE.mode  ?? f; }
+export function storedMode()              { return CACHE.mode ?? "auto"; }
 
 export async function saveConfig(partial) {
   CACHE = { ...CACHE, ...partial };
