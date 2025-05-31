@@ -5,16 +5,13 @@ import { loadConfig, saveConfig } from "../../config.js";
 export default function ConfigPage() {
   const initial = loadConfig();
 
-  /* simple three-field state */
-  const [appTitle, setTitle] = useState(initial.appTitle);
-  const [theme,    setTheme] = useState(initial.theme);  // boy|girl → blue|grey
-  const [mode,     setMode]  = useState(initial.mode);
-  const [saved,    setSaved] = useState(false);
+  const [theme, setTheme] = useState(initial.theme);
+  const [mode,  setMode]  = useState(initial.mode);
+  const [saved, setSaved] = useState(false);
 
   function handleSave() {
-    saveConfig({ appTitle: appTitle.trim() || "Web-Player", theme, mode });
+    saveConfig({ theme, mode });
 
-    /* apply instantly */
     document.documentElement.setAttribute("data-theme", theme);
     document.documentElement.setAttribute("data-mode",  mode);
 
@@ -29,31 +26,19 @@ export default function ConfigPage() {
         <section className="card config-wrap">
           <h2>Configuration</h2>
 
-          {/* app title */}
-          <h3>Application title</h3>
-          <input
-            type="text"
-            value={appTitle}
-            onChange={(e) => setTitle(e.target.value)}
-            style={{ marginBottom:"1rem" }}
-          />
-
           {/* theme */}
           <h3>Theme (accent colour)</h3>
           <label>
             <input
               type="radio" name="theme" value="boy"
-              checked={theme==="boy"}
-              onChange={()=>setTheme("boy")}
+              checked={theme==="boy"} onChange={()=>setTheme("boy")}
             />{" "}
             Blue
-          </label>
-          {"  "}
+          </label>{" "}
           <label>
             <input
               type="radio" name="theme" value="girl"
-              checked={theme==="girl"}
-              onChange={()=>setTheme("girl")}
+              checked={theme==="girl"} onChange={()=>setTheme("girl")}
             />{" "}
             Grey
           </label>
@@ -63,26 +48,21 @@ export default function ConfigPage() {
           <label>
             <input
               type="radio" name="mode" value="light"
-              checked={mode==="light"}
-              onChange={()=>setMode("light")}
+              checked={mode==="light"} onChange={()=>setMode("light")}
             />{" "}
             Light
-          </label>
-          {"  "}
+          </label>{" "}
           <label>
             <input
               type="radio" name="mode" value="dark"
-              checked={mode==="dark"}
-              onChange={()=>setMode("dark")}
+              checked={mode==="dark"} onChange={()=>setMode("dark")}
             />{" "}
             Dark
-          </label>
-          {"  "}
+          </label>{" "}
           <label>
             <input
               type="radio" name="mode" value="auto"
-              checked={mode==="auto"}
-              onChange={()=>setMode("auto")}
+              checked={mode==="auto"} onChange={()=>setMode("auto")}
             />{" "}
             Auto
           </label>
