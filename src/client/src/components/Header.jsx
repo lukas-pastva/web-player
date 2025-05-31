@@ -10,12 +10,14 @@ function applyMode(mode) {
   document.documentElement.setAttribute("data-mode", real);
 }
 
-export default function Header({ showMeta = false }) {
-  const p          = window.location.pathname;
-  const title      = window.location.hostname || "Web-Player";
+export default function Header() {
+  const p = window.location.pathname;
+  const domain = (window.location.hostname || "Web-Player")
+                 .replace(/^www\./, "");
+
+  /* colour-scheme toggle */
   const [mode, setMode] = useState(storedMode());
 
-  /* keep “auto” synced every 30 min */
   useEffect(() => {
     if (mode !== "auto") return;
     const id = setInterval(() => applyMode("auto"), 30 * 60 * 1000);
@@ -23,9 +25,10 @@ export default function Header({ showMeta = false }) {
   }, [mode]);
 
   function toggleMode() {
-    const next = mode === "light" ? "dark" : mode === "dark" ? "auto" : "light";
+    const next =
+      mode === "light" ? "dark" : mode === "dark" ? "auto" : "light";
     setMode(next);
-    saveConfig({ mode: next });        // only “mode” now
+    saveConfig({ mode: next });
     applyMode(next);
   }
 
@@ -33,15 +36,25 @@ export default function Header({ showMeta = false }) {
 
   return (
     <header className="mod-header">
-      <h1>{title}</h1>
+      <h1>{domain}</h1>
 
       <nav className="nav-center">
-        <a href="/media"  className={p.startsWith("/media")  ? "active" : ""}>Library</a>
-        <a href="/config" className={p === "/config" ? "active" : ""}>Config</a>
-        <a href="/help"   className={p === "/help"   ? "active" : ""}>Help</a>
+        <a href="/media"  className={p.startsWith("/media") ? "active" : ""}>
+          Library
+        </a>
+        <a href="/config" className={p === "/config" ? "active" : ""}>
+          Config
+        </a>
+        <a href="/help"   className={p === "/help"   ? "active" : ""}>
+          Help
+        </a>
       </nav>
 
-      <button className="mode-toggle" onClick={toggleMode} aria-label="Toggle colour mode">
+      <button
+        className="mode-toggle"
+        onClick={toggleMode}
+        aria-label="Toggle colour mode"
+      >
         {modeIcon}
       </button>
     </header>
