@@ -10,21 +10,26 @@ const crumbs = (rel="") =>
   }));
 
 export default function MediaBrowser() {
-  /* directory & list ------------------------------------------------ */
-  const [dir,       setDir]  = useState({ path:"", directories:[], files:[] });
-  const [playlist,  setList] = useState([]);
+  /* directory & list */
+  const [dir,      setDir ] = useState({ path:"", directories:[], files:[] });
+  const [playlist, setList] = useState([]);
 
-  /* player state ---------------------------------------------------- */
-  const [playIdx,   setIdx]  = useState(-1);   // index in playlist
-  const [userStart, setUsr]  = useState(false); // has user clicked yet?
-  const [mode,      setMode] = useState("sequential"); // none|sequential|shuffle|repeatOne
-  const audioRef             = useRef(null);
+  /* player state */
+  const [playIdx,  setIdx ] = useState(-1);
+  const [userStart,setUsr ] = useState(false);
+  const [mode,     setMode] = useState("sequential"); // none|sequential|shuffle|repeatOne
+
+  const audioRef   = useRef(null);
+  const canvasRef  = useRef(null);
+  const audioCtx   = useRef(null);
+  const analyser   = useRef(null);
+  const rafId      = useRef(null);
 
   /* ui state */
-  const [loading, setLoad] = useState(true);
-  const [err,     setErr ] = useState("");
+  const [loading,  setLoad] = useState(true);
+  const [err,      setErr ] = useState("");
 
-  /* load directory -------------------------------------------------- */
+  /* load dir -------------------------------------------------------- */
   const load = (p="") => {
     setLoad(true);
     api.list(p)
@@ -33,40 +38,76 @@ export default function MediaBrowser() {
   };
   useEffect(()=>load(""),[]);
 
-  /* rebuild playlist when dir changes ------------------------------ */
+  /* rebuild playlist on dir change --------------------------------- */
   useEffect(()=>{
-    const list = dir.files.filter(f=>f.toLowerCase().endsWith(".mp3"))
-                          .map(f=>dir.path?`${dir.path}/${f}`:f);
-    setList(list);
-    setIdx(list.length?0:-1);    // select first track
-    setUsr(false);               // but do NOT autoplay
+    const list=dir.files.filter(f=>f.toLowerCase().endsWith(".mp3"))
+                        .map(f=>dir.path?`${dir.path}/${f}`:f);
+    setList(list); setIdx(list.length?0:-1); setUsr(false);
   },[dir]);
 
-  /* when playIdx changes & user has started, play automatically ---- */
+  /* autoplay chain once user clicked -------------------------------- */
   useEffect(()=>{
     if(userStart && audioRef.current){
-      audioRef.current.play().catch(()=>{/* autoplay blocked – ignored */});
+      audioRef.current.play().catch(()=>{});
     }
   },[playIdx,userStart]);
 
   const playing = playIdx>=0?playlist[playIdx]:null;
 
-  /* user selects a track ------------------------------------------- */
+  /* user selects a track */
   function startTrack(idx){
-    setIdx(idx);
-    setUsr(true);                // enable autoplay chain
+    setIdx(idx); setUsr(true);
   }
 
-  /* ended event ----------------------------------------------------- */
+  /* equaliser setup / animation ------------------------------------ */
+  useEffect(()=>{
+    if(!audioRef.current || !canvasRef.current) return;
+    if(!audioCtx.current){
+      /* create context on first user gesture (userStart) */
+      const resumeCtx = () => {
+        audioCtx.current = new (window.AudioContext||window.webkitAudioContext)();
+        const srcNode = audioCtx.current.createMediaElementSource(audioRef.current);
+        analyser.current = audioCtx.current.createAnalyser();
+        analyser.current.fftSize = 256;
+        srcNode.connect(analyser.current).connect(audioCtx.current.destination);
+        draw();                                  // kick-off anim loop
+        window.removeEventListener("click", resumeCtx);
+      };
+      window.addEventListener("click", resumeCtx, { once:true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
+
+  function draw(){
+    const canvas = canvasRef.current;
+    if(!canvas || !analyser.current) return;
+    const ctx = canvas.getContext("2d");
+    const { width, height } = canvas;
+    const buffer = new Uint8Array(analyser.current.frequencyBinCount);
+
+    const render = ()=>{
+      analyser.current.getByteFrequencyData(buffer);
+      ctx.clearRect(0,0,width,height);
+      const barW = width / buffer.length;
+      buffer.forEach((v,i)=>{
+        const barH = (v/255)*height;
+        ctx.fillStyle="#3b82f6";
+        ctx.fillRect(i*barW, height-barH, barW-1, barH);
+      });
+      rafId.current = requestAnimationFrame(render);
+    };
+    render();
+  }
+
+  /* cleanup on unmount */
+  useEffect(()=>()=>cancelAnimationFrame(rafId.current),[]);
+
+  /* ended event */
   function onEnded(){
     if(mode==="repeatOne"){ audioRef.current.currentTime=0; audioRef.current.play(); return; }
     if(mode==="none"||playlist.length===0) return;
-
-    if(mode==="shuffle"){
-      setIdx(Math.floor(Math.random()*playlist.length));
-    }else if(mode==="sequential" && playIdx+1<playlist.length){
-      setIdx(playIdx+1);
-    }
+    if(mode==="shuffle"){ setIdx(Math.floor(Math.random()*playlist.length)); }
+    else if(mode==="sequential" && playIdx+1<playlist.length){ setIdx(playIdx+1); }
   }
 
   return(
@@ -74,9 +115,10 @@ export default function MediaBrowser() {
       <Header />
 
       <main>
-        {/* always-visible player box */}
+        {/* player box ─ always visible */}
         <section className="card player-box">
           <h3 style={{marginTop:0}}>Now playing</h3>
+
           {playing ? (
             <>
               <p style={{wordBreak:"break-all",marginBottom:"0.6rem"}}>{playing}</p>
@@ -96,6 +138,9 @@ export default function MediaBrowser() {
                 style={{width:"100%"}}
                 onEnded={onEnded}
               />
+
+              {/* equaliser canvas */}
+              <canvas ref={canvasRef} className="eq-canvas"/>
             </>
           ) : (
             <p><em>No MP3 files in this folder</em></p>
