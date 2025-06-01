@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Header from "../../../components/Header.jsx";
 import api from "../api.js";
 
-/* helpers ----------------------------------------------------------- */
+/* helpers ---------------------------------------------------------- */
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
 const crumbs = (rel="") =>
   rel.split("/").filter(Boolean).map((n,i)=>({
@@ -10,11 +10,11 @@ const crumbs = (rel="") =>
   }));
 
 export default function MediaBrowser() {
-  /* directory & list */
+  /* dir & playlist ------------------------------------------------- */
   const [dir,      setDir ] = useState({ path:"", directories:[], files:[] });
   const [playlist, setList] = useState([]);
 
-  /* player state */
+  /* player state --------------------------------------------------- */
   const [playIdx,  setIdx ] = useState(-1);
   const [userStart,setUsr ] = useState(false);
   const [mode,     setMode] = useState("sequential"); // none|sequential|shuffle|repeatOne
@@ -25,11 +25,11 @@ export default function MediaBrowser() {
   const analyser   = useRef(null);
   const rafId      = useRef(null);
 
-  /* ui state */
+  /* ui */
   const [loading,  setLoad] = useState(true);
   const [err,      setErr ] = useState("");
 
-  /* load dir -------------------------------------------------------- */
+  /* load directory ------------------------------------------------- */
   const load = (p="") => {
     setLoad(true);
     api.list(p)
@@ -38,71 +38,69 @@ export default function MediaBrowser() {
   };
   useEffect(()=>load(""),[]);
 
-  /* rebuild playlist on dir change --------------------------------- */
+  /* rebuild playlist on dir change -------------------------------- */
   useEffect(()=>{
     const list=dir.files.filter(f=>f.toLowerCase().endsWith(".mp3"))
                         .map(f=>dir.path?`${dir.path}/${f}`:f);
-    setList(list); setIdx(list.length?0:-1); setUsr(false);
+    setList(list);
+    setIdx(list.length?0:-1);
+    setUsr(false);
   },[dir]);
 
-  /* autoplay chain once user clicked -------------------------------- */
-  useEffect(()=>{
-    if(userStart && audioRef.current){
-      audioRef.current.play().catch(()=>{});
-    }
-  },[playIdx,userStart]);
+  const playing = playIdx>=0 ? playlist[playIdx] : null;
 
-  const playing = playIdx>=0?playlist[playIdx]:null;
+  /* user chooses a track ------------------------------------------ */
+  function startTrack(idx){ setIdx(idx); setUsr(true); }
 
-  /* user selects a track */
-  function startTrack(idx){
-    setIdx(idx); setUsr(true);
+  /* ensure AudioContext & analyser exist + resumed ---------------- */
+  function ensureAnalyser() {
+    if (audioCtx.current) return;
+    audioCtx.current = new (window.AudioContext||window.webkitAudioContext)();
+    const src = audioCtx.current.createMediaElementSource(audioRef.current);
+    analyser.current = audioCtx.current.createAnalyser();
+    analyser.current.fftSize = 256;
+    src.connect(analyser.current).connect(audioCtx.current.destination);
+    if (audioCtx.current.state === "suspended") audioCtx.current.resume();
+    drawEq();                                          // kick off loop
   }
 
-  /* equaliser setup / animation ------------------------------------ */
-  useEffect(()=>{
-    if(!audioRef.current || !canvasRef.current) return;
-    if(!audioCtx.current){
-      /* create context on first user gesture (userStart) */
-      const resumeCtx = () => {
-        audioCtx.current = new (window.AudioContext||window.webkitAudioContext)();
-        const srcNode = audioCtx.current.createMediaElementSource(audioRef.current);
-        analyser.current = audioCtx.current.createAnalyser();
-        analyser.current.fftSize = 256;
-        srcNode.connect(analyser.current).connect(audioCtx.current.destination);
-        draw();                                  // kick-off anim loop
-        window.removeEventListener("click", resumeCtx);
-      };
-      window.addEventListener("click", resumeCtx, { once:true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[]);
-
-  function draw(){
+  /* equaliser draw loop ------------------------------------------- */
+  function drawEq(){
     const canvas = canvasRef.current;
     if(!canvas || !analyser.current) return;
-    const ctx = canvas.getContext("2d");
+
+    /* match canvas internal pixels to CSS size for crisp bars */
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.clientWidth;
+    const cssH = canvas.clientHeight;
+    if(canvas.width !== cssW*dpr || canvas.height !== cssH*dpr){
+      canvas.width  = cssW * dpr;
+      canvas.height = cssH * dpr;
+    }
     const { width, height } = canvas;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr,dpr);           // draw in CSS pixels
+
     const buffer = new Uint8Array(analyser.current.frequencyBinCount);
+    const barW   = cssW / buffer.length;
 
     const render = ()=>{
       analyser.current.getByteFrequencyData(buffer);
-      ctx.clearRect(0,0,width,height);
-      const barW = width / buffer.length;
+      ctx.clearRect(0,0,cssW,cssH);
       buffer.forEach((v,i)=>{
-        const barH = (v/255)*height;
+        const barH = (v/255)*cssH;
         ctx.fillStyle="#3b82f6";
-        ctx.fillRect(i*barW, height-barH, barW-1, barH);
+        ctx.fillRect(i*barW, cssH-barH, barW-1, barH);
       });
       rafId.current = requestAnimationFrame(render);
     };
     render();
   }
 
-  /* cleanup on unmount */
+  /* stop animation on unmount ------------------------------------- */
   useEffect(()=>()=>cancelAnimationFrame(rafId.current),[]);
 
-  /* ended event */
+  /* handle track end ---------------------------------------------- */
   function onEnded(){
     if(mode==="repeatOne"){ audioRef.current.currentTime=0; audioRef.current.play(); return; }
     if(mode==="none"||playlist.length===0) return;
@@ -115,7 +113,7 @@ export default function MediaBrowser() {
       <Header />
 
       <main>
-        {/* player box ─ always visible */}
+        {/* player box (always sticky) */}
         <section className="card player-box">
           <h3 style={{marginTop:0}}>Now playing</h3>
 
@@ -136,10 +134,11 @@ export default function MediaBrowser() {
                 src={`/media/${enc(playing)}`}
                 controls
                 style={{width:"100%"}}
+                onPlay={ensureAnalyser}   /* create/resume context here */
                 onEnded={onEnded}
               />
 
-              {/* equaliser canvas */}
+              {/* equaliser */}
               <canvas ref={canvasRef} className="eq-canvas"/>
             </>
           ) : (
@@ -175,7 +174,7 @@ export default function MediaBrowser() {
                       {dir.directories.map(d=>(
                         <li key={d}>📁{" "}
                           <button className="crumb-btn"
-                            onClick={()=>load(dir.path?`${dir.path}/${d}`:d)}>
+                                  onClick={()=>load(dir.path?`${dir.path}/${d}`:d)}>
                             {d}
                           </button>
                         </li>
@@ -192,11 +191,11 @@ export default function MediaBrowser() {
                   <div className="scroll-list">
                     <ul style={{listStyle:"none",paddingLeft:0,margin:0}}>
                       {playlist.map((rel,i)=>{
-                        const fname = rel.split("/").pop();
-                        return(
+                        const name = rel.split("/").pop();
+                        return (
                           <li key={rel}>🎵{" "}
                             <button className="crumb-btn" onClick={()=>startTrack(i)}>
-                              {fname}
+                              {name}
                             </button>
                           </li>
                         );
@@ -206,9 +205,8 @@ export default function MediaBrowser() {
                 </>
               )}
 
-              {dir.directories.length===0 && playlist.length===0 && (
-                <p><em>Folder is empty.</em></p>
-              )}
+              {dir.directories.length===0 && playlist.length===0 &&
+                <p><em>Folder is empty.</em></p>}
             </>
           )}
         </section>
