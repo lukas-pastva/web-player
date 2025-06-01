@@ -59,7 +59,7 @@ export default function MediaBrowser() {
       .filter((f) => f.toLowerCase().endsWith(".mp3"))
       .map((f) => (dir.path ? `${dir.path}/${f}` : f));
     setList(list);
-    setIdx(list.length ? 0 : -1); // pre-select first track
+    setIdx(list.length ? 0 : -1);
     setUsr(false);
   }, [dir]);
 
@@ -70,7 +70,7 @@ export default function MediaBrowser() {
     setIdx(idx);
     setUsr(true);
 
-    /* start playback right away — still within user gesture */
+    /* play right away – still within user gesture */
     setTimeout(() => {
       if (audioRef.current) audioRef.current.play().catch(() => {});
     }, 0);
@@ -83,18 +83,45 @@ export default function MediaBrowser() {
     }
   }, [playIdx, userStart]);
 
-  /* create analyser on first play --------------------------------- */
-  function ensureAnalyser() {
-    if (audioCtx.current) return;
+  /* ── AudioContext helpers --------------------------------------- */
+  function createAnalyser() {
     audioCtx.current =
       new (window.AudioContext || window.webkitAudioContext)();
     const src = audioCtx.current.createMediaElementSource(audioRef.current);
     analyser.current = audioCtx.current.createAnalyser();
     analyser.current.fftSize = 256;
     src.connect(analyser.current).connect(audioCtx.current.destination);
-    if (audioCtx.current.state === "suspended") audioCtx.current.resume();
     drawEq();
   }
+
+  function resumeIfSuspended() {
+    if (audioCtx.current && audioCtx.current.state === "suspended") {
+      audioCtx.current.resume();
+      /* if audio was supposed to be playing, resume it too */
+      if (audioRef.current && !audioRef.current.paused) {
+        audioRef.current.play().catch(() => {});
+      }
+    }
+  }
+
+  /* set up event listeners once ----------------------------------- */
+  useEffect(() => {
+    /* create analyser on first user gesture */
+    const initCtx = () => {
+      if (!audioCtx.current) createAnalyser();
+      resumeIfSuspended();
+    };
+    window.addEventListener("pointerdown", initCtx, { once: true });
+
+    /* resume context whenever page/tab gains focus again */
+    window.addEventListener("visibilitychange", resumeIfSuspended);
+    window.addEventListener("focus", resumeIfSuspended);
+
+    return () => {
+      window.removeEventListener("visibilitychange", resumeIfSuspended);
+      window.removeEventListener("focus", resumeIfSuspended);
+    };
+  }, []);
 
   /* equaliser draw loop ------------------------------------------- */
   function drawEq() {
@@ -187,7 +214,6 @@ export default function MediaBrowser() {
                 src={`/media/${enc(playing)}`}
                 controls
                 style={{ width: "100%" }}
-                onPlay={ensureAnalyser}
                 onEnded={onEnded}
               />
 
