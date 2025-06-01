@@ -15,11 +15,7 @@ const crumbs = (rel = "") =>
 
 export default function MediaBrowser() {
   /* directory & playlist ------------------------------------------ */
-  const [dir, setDir] = useState({
-    path: "",
-    directories: [],
-    files: [],
-  });
+  const [dir, setDir] = useState({ path: "", directories: [], files: [] });
   const [playlist, setList] = useState([]);
 
   /* player state --------------------------------------------------- */
@@ -83,45 +79,21 @@ export default function MediaBrowser() {
     }
   }, [playIdx, userStart]);
 
-  /* ── AudioContext helpers --------------------------------------- */
-  function createAnalyser() {
-    audioCtx.current =
-      new (window.AudioContext || window.webkitAudioContext)();
-    const src = audioCtx.current.createMediaElementSource(audioRef.current);
-    analyser.current = audioCtx.current.createAnalyser();
-    analyser.current.fftSize = 256;
-    src.connect(analyser.current).connect(audioCtx.current.destination);
-    drawEq();
-  }
-
-  function resumeIfSuspended() {
-    if (audioCtx.current && audioCtx.current.state === "suspended") {
+  /* ── AudioContext / analyser ------------------------------------ */
+  function ensureAnalyser() {
+    if (!audioCtx.current) {
+      audioCtx.current =
+        new (window.AudioContext || window.webkitAudioContext)();
+      const src = audioCtx.current.createMediaElementSource(audioRef.current);
+      analyser.current = audioCtx.current.createAnalyser();
+      analyser.current.fftSize = 256;
+      src.connect(analyser.current).connect(audioCtx.current.destination);
+      drawEq();
+    }
+    if (audioCtx.current.state === "suspended") {
       audioCtx.current.resume();
-      /* if audio was supposed to be playing, resume it too */
-      if (audioRef.current && !audioRef.current.paused) {
-        audioRef.current.play().catch(() => {});
-      }
     }
   }
-
-  /* set up event listeners once ----------------------------------- */
-  useEffect(() => {
-    /* create analyser on first user gesture */
-    const initCtx = () => {
-      if (!audioCtx.current) createAnalyser();
-      resumeIfSuspended();
-    };
-    window.addEventListener("pointerdown", initCtx, { once: true });
-
-    /* resume context whenever page/tab gains focus again */
-    window.addEventListener("visibilitychange", resumeIfSuspended);
-    window.addEventListener("focus", resumeIfSuspended);
-
-    return () => {
-      window.removeEventListener("visibilitychange", resumeIfSuspended);
-      window.removeEventListener("focus", resumeIfSuspended);
-    };
-  }, []);
 
   /* equaliser draw loop ------------------------------------------- */
   function drawEq() {
@@ -153,9 +125,22 @@ export default function MediaBrowser() {
     };
     render();
   }
-
-  /* cancel animation on unmount */
   useEffect(() => () => cancelAnimationFrame(rafId.current), []);
+
+  /* resume context when page/tab regains focus -------------------- */
+  function resumeCtx() {
+    if (audioCtx.current && audioCtx.current.state === "suspended") {
+      audioCtx.current.resume();
+    }
+  }
+  useEffect(() => {
+    window.addEventListener("visibilitychange", resumeCtx);
+    window.addEventListener("focus", resumeCtx);
+    return () => {
+      window.removeEventListener("visibilitychange", resumeCtx);
+      window.removeEventListener("focus", resumeCtx);
+    };
+  }, []);
 
   /* handle track end ---------------------------------------------- */
   function onEnded() {
@@ -214,6 +199,7 @@ export default function MediaBrowser() {
                 src={`/media/${enc(playing)}`}
                 controls
                 style={{ width: "100%" }}
+                onPlay={ensureAnalyser}   /* create / resume every play */
                 onEnded={onEnded}
               />
 
