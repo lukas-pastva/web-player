@@ -4,125 +4,178 @@ import api from "../api.js";
 
 /* helpers ---------------------------------------------------------- */
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
-const crumbs = (rel="") =>
-  rel.split("/").filter(Boolean).map((n,i)=>({
-    name:n, path:rel.split("/").slice(0,i+1).join("/"),
-  }));
+const crumbs = (rel = "") =>
+  rel
+    .split("/")
+    .filter(Boolean)
+    .map((n, i) => ({
+      name: n,
+      path: rel.split("/").slice(0, i + 1).join("/"),
+    }));
 
 export default function MediaBrowser() {
-  /* dir & playlist ------------------------------------------------- */
-  const [dir,      setDir ] = useState({ path:"", directories:[], files:[] });
+  /* directory & playlist ------------------------------------------ */
+  const [dir, setDir] = useState({
+    path: "",
+    directories: [],
+    files: [],
+  });
   const [playlist, setList] = useState([]);
 
   /* player state --------------------------------------------------- */
-  const [playIdx,  setIdx ] = useState(-1);
-  const [userStart,setUsr ] = useState(false);
-  const [mode,     setMode] = useState("sequential"); // none|sequential|shuffle|repeatOne
+  const [playIdx, setIdx] = useState(-1);
+  const [userStart, setUsr] = useState(false);
+  const [mode, setMode] = useState("sequential"); // none|sequential|shuffle|repeatOne
 
-  const audioRef   = useRef(null);
-  const canvasRef  = useRef(null);
-  const audioCtx   = useRef(null);
-  const analyser   = useRef(null);
-  const rafId      = useRef(null);
+  const audioRef = useRef(null);
+  const canvasRef = useRef(null);
+  const audioCtx = useRef(null);
+  const analyser = useRef(null);
+  const rafId = useRef(null);
 
-  /* ui */
-  const [loading,  setLoad] = useState(true);
-  const [err,      setErr ] = useState("");
+  /* ui state */
+  const [loading, setLoad] = useState(true);
+  const [err, setErr] = useState("");
 
-  /* load directory ------------------------------------------------- */
-  const load = (p="") => {
+  /* ── load directory --------------------------------------------- */
+  const load = (p = "") => {
     setLoad(true);
-    api.list(p)
-       .then(d=>{ setDir(d); setLoad(false); })
-       .catch(e=>{ setErr(e.message); setLoad(false); });
+    api
+      .list(p)
+      .then((d) => {
+        setDir(d);
+        setLoad(false);
+      })
+      .catch((e) => {
+        setErr(e.message);
+        setLoad(false);
+      });
   };
-  useEffect(()=>load(""),[]);
+  useEffect(() => load(""), []);
 
   /* rebuild playlist on dir change -------------------------------- */
-  useEffect(()=>{
-    const list=dir.files.filter(f=>f.toLowerCase().endsWith(".mp3"))
-                        .map(f=>dir.path?`${dir.path}/${f}`:f);
+  useEffect(() => {
+    const list = dir.files
+      .filter((f) => f.toLowerCase().endsWith(".mp3"))
+      .map((f) => (dir.path ? `${dir.path}/${f}` : f));
     setList(list);
-    setIdx(list.length?0:-1);
+    setIdx(list.length ? 0 : -1); // pre-select first track
     setUsr(false);
-  },[dir]);
+  }, [dir]);
 
-  const playing = playIdx>=0 ? playlist[playIdx] : null;
+  const playing = playIdx >= 0 ? playlist[playIdx] : null;
 
-  /* user chooses a track ------------------------------------------ */
-  function startTrack(idx){ setIdx(idx); setUsr(true); }
+  /* user clicks an MP3 button ------------------------------------- */
+  function startTrack(idx) {
+    setIdx(idx);
+    setUsr(true);
 
-  /* ensure AudioContext & analyser exist + resumed ---------------- */
+    /* start playback right away — still within user gesture */
+    setTimeout(() => {
+      if (audioRef.current) audioRef.current.play().catch(() => {});
+    }, 0);
+  }
+
+  /* autoplay chain after first user click ------------------------- */
+  useEffect(() => {
+    if (userStart && audioRef.current) {
+      audioRef.current.play().catch(() => {});
+    }
+  }, [playIdx, userStart]);
+
+  /* create analyser on first play --------------------------------- */
   function ensureAnalyser() {
     if (audioCtx.current) return;
-    audioCtx.current = new (window.AudioContext||window.webkitAudioContext)();
+    audioCtx.current =
+      new (window.AudioContext || window.webkitAudioContext)();
     const src = audioCtx.current.createMediaElementSource(audioRef.current);
     analyser.current = audioCtx.current.createAnalyser();
     analyser.current.fftSize = 256;
     src.connect(analyser.current).connect(audioCtx.current.destination);
     if (audioCtx.current.state === "suspended") audioCtx.current.resume();
-    drawEq();                                          // kick off loop
+    drawEq();
   }
 
   /* equaliser draw loop ------------------------------------------- */
-  function drawEq(){
+  function drawEq() {
     const canvas = canvasRef.current;
-    if(!canvas || !analyser.current) return;
+    if (!canvas || !analyser.current) return;
 
-    /* match canvas internal pixels to CSS size for crisp bars */
     const dpr = window.devicePixelRatio || 1;
     const cssW = canvas.clientWidth;
     const cssH = canvas.clientHeight;
-    if(canvas.width !== cssW*dpr || canvas.height !== cssH*dpr){
-      canvas.width  = cssW * dpr;
+    if (canvas.width !== cssW * dpr || canvas.height !== cssH * dpr) {
+      canvas.width = cssW * dpr;
       canvas.height = cssH * dpr;
     }
-    const { width, height } = canvas;
+
     const ctx = canvas.getContext("2d");
-    ctx.scale(dpr,dpr);           // draw in CSS pixels
-
+    ctx.scale(dpr, dpr);
     const buffer = new Uint8Array(analyser.current.frequencyBinCount);
-    const barW   = cssW / buffer.length;
+    const barW = cssW / buffer.length;
 
-    const render = ()=>{
+    const render = () => {
       analyser.current.getByteFrequencyData(buffer);
-      ctx.clearRect(0,0,cssW,cssH);
-      buffer.forEach((v,i)=>{
-        const barH = (v/255)*cssH;
-        ctx.fillStyle="#3b82f6";
-        ctx.fillRect(i*barW, cssH-barH, barW-1, barH);
+      ctx.clearRect(0, 0, cssW, cssH);
+      buffer.forEach((v, i) => {
+        const barH = (v / 255) * cssH;
+        ctx.fillStyle = "#3b82f6";
+        ctx.fillRect(i * barW, cssH - barH, barW - 1, barH);
       });
       rafId.current = requestAnimationFrame(render);
     };
     render();
   }
 
-  /* stop animation on unmount ------------------------------------- */
-  useEffect(()=>()=>cancelAnimationFrame(rafId.current),[]);
+  /* cancel animation on unmount */
+  useEffect(() => () => cancelAnimationFrame(rafId.current), []);
 
   /* handle track end ---------------------------------------------- */
-  function onEnded(){
-    if(mode==="repeatOne"){ audioRef.current.currentTime=0; audioRef.current.play(); return; }
-    if(mode==="none"||playlist.length===0) return;
-    if(mode==="shuffle"){ setIdx(Math.floor(Math.random()*playlist.length)); }
-    else if(mode==="sequential" && playIdx+1<playlist.length){ setIdx(playIdx+1); }
+  function onEnded() {
+    if (mode === "repeatOne") {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play();
+      return;
+    }
+    if (mode === "none" || playlist.length === 0) return;
+
+    if (mode === "shuffle") {
+      setIdx(Math.floor(Math.random() * playlist.length));
+    } else if (mode === "sequential" && playIdx + 1 < playlist.length) {
+      setIdx(playIdx + 1);
+    }
   }
 
-  return(
+  return (
     <>
       <Header />
 
       <main>
-        {/* player box (always sticky) */}
+        {/* sticky player box */}
         <section className="card player-box">
-          <h3 style={{marginTop:0}}>Now playing</h3>
+          <h3 style={{ marginTop: 0 }}>Now playing</h3>
 
           {playing ? (
             <>
-              <p style={{wordBreak:"break-all",marginBottom:"0.6rem"}}>{playing}</p>
+              <p
+                style={{
+                  wordBreak: "break-all",
+                  marginBottom: "0.6rem",
+                }}
+              >
+                {playing}
+              </p>
 
-              <label style={{fontWeight:600,marginRight:6}}>Playback mode:</label>
-              <select value={mode} onChange={e=>setMode(e.target.value)} style={{marginBottom:"0.8rem"}}>
+              <label
+                style={{ fontWeight: 600, marginRight: 6 }}
+              >
+                Playback mode:
+              </label>
+              <select
+                value={mode}
+                onChange={(e) => setMode(e.target.value)}
+                style={{ marginBottom: "0.8rem" }}
+              >
                 <option value="none">No autoplay</option>
                 <option value="sequential">Autoplay next</option>
                 <option value="shuffle">Shuffle</option>
@@ -133,29 +186,37 @@ export default function MediaBrowser() {
                 ref={audioRef}
                 src={`/media/${enc(playing)}`}
                 controls
-                style={{width:"100%"}}
-                onPlay={ensureAnalyser}   /* create/resume context here */
+                style={{ width: "100%" }}
+                onPlay={ensureAnalyser}
                 onEnded={onEnded}
               />
 
               {/* equaliser */}
-              <canvas ref={canvasRef} className="eq-canvas"/>
+              <canvas ref={canvasRef} className="eq-canvas" />
             </>
           ) : (
-            <p><em>No MP3 files in this folder</em></p>
+            <p>
+              <em>No MP3 files in this folder</em>
+            </p>
           )}
         </section>
 
         {/* library browser */}
-        <section className="card" style={{maxWidth:900}}>
-          <h2 style={{marginTop:0}}>Media library</h2>
+        <section className="card" style={{ maxWidth: 900 }}>
+          <h2 style={{ marginTop: 0 }}>Media library</h2>
 
           {/* breadcrumbs */}
-          <div style={{marginBottom:"1rem"}}>
+          <div style={{ marginBottom: "1rem" }}>
             <strong>Path:&nbsp;</strong>
-            <button className="crumb-btn" onClick={()=>load("")}>/</button>
-            {crumbs(dir.path).map(c=>(
-              <button key={c.path} className="crumb-btn" onClick={()=>load(c.path)}>
+            <button className="crumb-btn" onClick={() => load("")}>
+              /
+            </button>
+            {crumbs(dir.path).map((c) => (
+              <button
+                key={c.path}
+                className="crumb-btn"
+                onClick={() => load(c.path)}
+              >
                 {c.name}
               </button>
             ))}
@@ -166,15 +227,26 @@ export default function MediaBrowser() {
           {!loading && (
             <>
               {/* folders */}
-              {dir.directories.length>0 && (
+              {dir.directories.length > 0 && (
                 <>
                   <h3>Folders</h3>
                   <div className="scroll-list">
-                    <ul style={{listStyle:"none",paddingLeft:0,margin:0}}>
-                      {dir.directories.map(d=>(
-                        <li key={d}>📁{" "}
-                          <button className="crumb-btn"
-                                  onClick={()=>load(dir.path?`${dir.path}/${d}`:d)}>
+                    <ul
+                      style={{
+                        listStyle: "none",
+                        paddingLeft: 0,
+                        margin: 0,
+                      }}
+                    >
+                      {dir.directories.map((d) => (
+                        <li key={d}>
+                          📁{" "}
+                          <button
+                            className="crumb-btn"
+                            onClick={() =>
+                              load(dir.path ? `${dir.path}/${d}` : d)
+                            }
+                          >
                             {d}
                           </button>
                         </li>
@@ -185,16 +257,26 @@ export default function MediaBrowser() {
               )}
 
               {/* mp3 list */}
-              {playlist.length>0 && (
+              {playlist.length > 0 && (
                 <>
                   <h3>MP3 files</h3>
                   <div className="scroll-list">
-                    <ul style={{listStyle:"none",paddingLeft:0,margin:0}}>
-                      {playlist.map((rel,i)=>{
+                    <ul
+                      style={{
+                        listStyle: "none",
+                        paddingLeft: 0,
+                        margin: 0,
+                      }}
+                    >
+                      {playlist.map((rel, i) => {
                         const name = rel.split("/").pop();
                         return (
-                          <li key={rel}>🎵{" "}
-                            <button className="crumb-btn" onClick={()=>startTrack(i)}>
+                          <li key={rel}>
+                            🎵{" "}
+                            <button
+                              className="crumb-btn"
+                              onClick={() => startTrack(i)}
+                            >
                               {name}
                             </button>
                           </li>
@@ -205,8 +287,11 @@ export default function MediaBrowser() {
                 </>
               )}
 
-              {dir.directories.length===0 && playlist.length===0 &&
-                <p><em>Folder is empty.</em></p>}
+              {dir.directories.length === 0 && playlist.length === 0 && (
+                <p>
+                  <em>Folder is empty.</em>
+                </p>
+              )}
             </>
           )}
         </section>
