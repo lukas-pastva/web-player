@@ -1,11 +1,17 @@
 /* ──────────────────────────────────────────────────────────
  * Express server – now also serves the INTRO_MD markdown
+ * (ES-module syntax to match "type": "module")
  * ────────────────────────────────────────────────────────── */
-const express = require("express");
-const path    = require("path");
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const configRoutes = require("./modules/config/routes");
-const mediaRoutes  = require("./modules/media/routes");
+import configRoutes from "./modules/config/routes.js";
+import mediaRoutes  from "./modules/media/routes.js";
+
+/* __dirname/__filename helpers in ESM */
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
 
 const app  = express();
 const PORT = process.env.PORT || 8080;
@@ -17,15 +23,14 @@ app.use(express.json());
 app.use("/api/config", configRoutes);
 app.use("/api/media",  mediaRoutes);
 
-/* NEW ─────────── introduction banner
-   Returns raw markdown from the INTRO_MD env variable.            */
+/* NEW ─────────── introduction banner (Markdown text) */
 const INTRO_MD = process.env.INTRO_MD || "";
 app.get("/api/intro", (_req, res) => {
   res.type("text/markdown").send(INTRO_MD);
 });
 
 /* ─────────────── static files */
-app.use("/media",  express.static(path.resolve(__dirname, "../../media")));
+app.use("/media", express.static(path.resolve(__dirname, "../../media")));
 app.use(express.static(path.resolve(__dirname, "../public")));
 
 /* SPA fallback */
