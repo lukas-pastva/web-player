@@ -2,10 +2,10 @@
  * Pull all .m4a files from a public Google-Drive folder into /app/media
  * – works with nothing but the public-folder ID
  * – re-runs periodically (index.js schedules it)
+ * – uses the global fetch built into Node 18+
  * ------------------------------------------------------------------ */
 import fs   from "fs/promises";
 import path from "path";
-import fetch from "node:fetch";                 // Node 18+ global
 
 /* ------------------------------------------------------------------ */
 /* 1️⃣  Grab folder HTML in Drive’s lightweight “embed” view           */
@@ -23,13 +23,13 @@ function parseFiles(html) {
 /* 3️⃣  Download the file only if it’s not present already */
 async function download({ id, name }, mediaRoot) {
   const dest = path.join(mediaRoot, name);
-  try { await fs.access(dest); return; }        // exists → skip
+  try { await fs.access(dest); return; }        // already there – skip
   catch { /* fall through */ }
 
-  const url = `https://drive.google.com/uc?export=download&id=${id}`;
-  const res = await fetch(url);
+  const url  = `https://drive.google.com/uc?export=download&id=${id}`;
+  const res  = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const buf = new Uint8Array(await res.arrayBuffer());
+  const buf  = new Uint8Array(await res.arrayBuffer());
   await fs.writeFile(dest, buf);
   console.log(`✓  ${name}`);
 }
@@ -38,7 +38,7 @@ async function download({ id, name }, mediaRoot) {
 /* Main entry exported to index.js                                    */
 export default async function syncDrive(mediaRoot) {
   const folderId = process.env.DRIVE_FOLDER_ID;
-  if (!folderId) {                               // opt-in via env
+  if (!folderId) {
     console.warn("Drive-sync skipped – DRIVE_FOLDER_ID not set.");
     return;
   }
