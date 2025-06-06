@@ -1,23 +1,18 @@
 /* ──────────────────────────────────────────────────────────
- * Express server – ES-module version
+ * Express server – ES-module
  *  • loads .env (dotenv)
- *  • can still import CommonJS route modules via createRequire
- *  • serves INTRO_MD banner and the /media tree
+ *  • serves INTRO_MD banner and /media tree
  * ────────────────────────────────────────────────────────── */
-
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createRequire } from "module";
 import dotenv from "dotenv";
+
+import configRoutes from "./modules/config/routes.js";
+import mediaRoutes  from "./modules/media/routes.js";
 
 /* enable .env support */
 dotenv.config();
-
-/* CommonJS routes need require(), so create one */
-const require = createRequire(import.meta.url);
-const configRoutes = require("./modules/config/routes.js");
-const mediaRoutes  = require("./modules/media/routes.js");
 
 /* __dirname helper in ESM */
 const __filename = fileURLToPath(import.meta.url);
