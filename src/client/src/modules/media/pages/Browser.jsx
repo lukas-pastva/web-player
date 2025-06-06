@@ -52,7 +52,7 @@ export default function MediaBrowser() {
   /* rebuild playlist on dir change -------------------------------- */
   useEffect(() => {
     const list = dir.files
-      .filter((f) => f.toLowerCase().endsWith(".mp3"))
+      .filter((f) => /\.(mp3|m4a)$/i.test(f))
       .map((f) => (dir.path ? `${dir.path}/${f}` : f));
     setList(list);
     setIdx(list.length ? 0 : -1);

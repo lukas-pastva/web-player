@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import dotenv   from "dotenv";
 
 import mediaRoutes from "./modules/media/routes.js";
+import syncDrive   from "./syncDrive.js";
 
 dotenv.config();
 
@@ -33,4 +34,8 @@ app.get("*", (_req, res) =>
 app.listen(port, () => {
   console.log(`Web-Player listening on ${port}`);
   console.log(`Serving media from: ${mediaRoot}`);
+
+  /* kick off the initial Google-Drive sync and repeat every 10 min */
+  syncDrive(mediaRoot);
+  setInterval(() => syncDrive(mediaRoot), 10 * 60 * 1000);
 });
