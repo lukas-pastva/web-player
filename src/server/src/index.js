@@ -1,15 +1,25 @@
 /* ──────────────────────────────────────────────────────────
- * Express server – now also serves the INTRO_MD markdown
- * (ES-module syntax to match "type": "module")
+ * Express server – ES-module version
+ *  • loads .env (dotenv)
+ *  • can still import CommonJS route modules via createRequire
+ *  • serves INTRO_MD banner and the /media tree
  * ────────────────────────────────────────────────────────── */
+
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
+import { createRequire } from "module";
+import dotenv from "dotenv";
 
-import configRoutes from "./modules/config/routes.js";
-import mediaRoutes  from "./modules/media/routes.js";
+/* enable .env support */
+dotenv.config();
 
-/* __dirname/__filename helpers in ESM */
+/* CommonJS routes need require(), so create one */
+const require = createRequire(import.meta.url);
+const configRoutes = require("./modules/config/routes.js");
+const mediaRoutes  = require("./modules/media/routes.js");
+
+/* __dirname helper in ESM */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
@@ -21,16 +31,20 @@ app.use(express.json());
 
 /* ─────────────── API routes */
 app.use("/api/config", configRoutes);
-app.use("/api/media",  mediaRoutes);
+app.use("/api/media" , mediaRoutes);
 
-/* NEW ─────────── introduction banner (Markdown text) */
+/* ─────────────── introduction banner (Markdown text) */
 const INTRO_MD = process.env.INTRO_MD || "";
 app.get("/api/intro", (_req, res) => {
   res.type("text/markdown").send(INTRO_MD);
 });
 
 /* ─────────────── static files */
-app.use("/media", express.static(path.resolve(__dirname, "../../media")));
+const MEDIA_ROOT = process.env.MEDIA_ROOT
+  ? path.resolve(process.env.MEDIA_ROOT)
+  : path.resolve(__dirname, "../../media");
+
+app.use("/media", express.static(MEDIA_ROOT));
 app.use(express.static(path.resolve(__dirname, "../public")));
 
 /* SPA fallback */
