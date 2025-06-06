@@ -1,5 +1,5 @@
 import { Router } from "express";
-import fs from "fs/promises";
+import fs   from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -11,27 +11,38 @@ const CFG_PATH  = path.join(__dirname, "..", "..", "..", "config.json");
 
 const DEFAULT_CFG = { theme:"boy", mode:"auto" };
 
+/* helpers --------------------------------------------------------- */
 async function loadCfg() {
-  try { return { ...DEFAULT_CFG, ...(JSON.parse(await fs.readFile(CFG_PATH))) }; }
-  catch { return { ...DEFAULT_CFG }; }
+  try {
+    return { ...DEFAULT_CFG, ...(JSON.parse(await fs.readFile(CFG_PATH))) };
+  } catch {
+    return { ...DEFAULT_CFG };
+  }
 }
 async function saveCfg(cfg) {
   await fs.writeFile(CFG_PATH, JSON.stringify(cfg, null, 2));
   return cfg;
 }
 
-/* GET /api/config */
+/* GET /api/config
+ * ---------------------------------------------------------------
+ * Adds INTRO_TEXT (Markdown) from env without persisting it.
+ */
 r.get("/api/config", async (_req, res) => {
-  res.json(await loadCfg());
+  const cfg   = await loadCfg();
+  const intro = process.env.INTRO_TEXT || "";
+  res.json({ ...cfg, intro });
 });
 
-/* PUT /api/config */
+/* PUT /api/config
+ * Persists theme/mode only – intro is read-only.
+ */
 r.put("/api/config", async (req, res) => {
   const cur  = await loadCfg();
   const next = { ...cur };
 
-  if (["boy","girl"].includes(req.body.theme)) next.theme = req.body.theme;
-  if (["light","dark","auto"].includes(req.body.mode))   next.mode  = req.body.mode;
+  if (["boy", "girl"].includes(req.body.theme)) next.theme = req.body.theme;
+  if (["light", "dark", "auto"].includes(req.body.mode))  next.mode  = req.body.mode;
 
   await saveCfg(next);
   res.json(next);

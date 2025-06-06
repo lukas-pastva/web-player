@@ -1,52 +1,38 @@
-/* ──────────────────────────────────────────────────────────
- * Express server – ES-module
- *  • loads .env (dotenv)
- *  • serves INTRO_MD banner and /media tree
- * ────────────────────────────────────────────────────────── */
-import express from "express";
-import path from "path";
+import express  from "express";
+import cors     from "cors";
+import path     from "path";
 import { fileURLToPath } from "url";
-import dotenv from "dotenv";
+import dotenv   from "dotenv";
 
 import configRoutes from "./modules/config/routes.js";
 import mediaRoutes  from "./modules/media/routes.js";
 
-/* enable .env support */
-dotenv.config();
-
-/* __dirname helper in ESM */
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+dotenv.config();                                // ⟵ no DB sync needed
 
 const app  = express();
-const PORT = process.env.PORT || 8080;
+const port = process.env.PORT || 8080;
 
-/* JSON body parsing for /api/config */
+/* middleware */
+app.use(cors());
 app.use(express.json());
 
-/* ─────────────── API routes */
-app.use("/api/config", configRoutes);
-app.use("/api/media" , mediaRoutes);
+/* API routes */
+app.use(configRoutes);
+app.use(mediaRoutes);
 
-/* ─────────────── introduction banner (Markdown text) */
-const INTRO_MD = process.env.INTRO_MD || "";
-app.get("/api/intro", (_req, res) => {
-  res.type("text/markdown").send(INTRO_MD);
-});
-
-/* ─────────────── static files */
-const MEDIA_ROOT = process.env.MEDIA_ROOT
+/* static SPA + raw media files ------------------------------------ */
+const __dirname  = path.dirname(fileURLToPath(import.meta.url));
+const mediaRoot  = process.env.MEDIA_ROOT
   ? path.resolve(process.env.MEDIA_ROOT)
-  : path.resolve(__dirname, "../../media");
+  : path.join(__dirname, "../../media");
 
-app.use("/media", express.static(MEDIA_ROOT));
-app.use(express.static(path.resolve(__dirname, "../public")));
-
-/* SPA fallback */
+app.use("/media", express.static(mediaRoot));
+app.use(express.static(path.join(__dirname, "../public")));
 app.get("*", (_req, res) =>
-  res.sendFile(path.resolve(__dirname, "../public/index.html")),
+  res.sendFile(path.join(__dirname, "../public/index.html"))
 );
 
-app.listen(PORT, () =>
-  console.log(`Web-Player listening on http://localhost:${PORT}`),
-);
+app.listen(port, () => {
+  console.log(`Web-Player listening on ${port}`);
+  console.log(`Serving media from: ${mediaRoot}`);
+});
