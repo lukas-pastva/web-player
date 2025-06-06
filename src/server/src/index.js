@@ -1,38 +1,38 @@
-import express  from "express";
-import cors     from "cors";
-import path     from "path";
-import { fileURLToPath } from "url";
-import dotenv   from "dotenv";
+/* ──────────────────────────────────────────────────────────
+ * Express server – now also serves the INTRO_MD markdown
+ * ────────────────────────────────────────────────────────── */
+const express = require("express");
+const path    = require("path");
 
-import configRoutes from "./modules/config/routes.js";
-import mediaRoutes  from "./modules/media/routes.js";
-
-dotenv.config();                                // ⟵ no DB sync needed
+const configRoutes = require("./modules/config/routes");
+const mediaRoutes  = require("./modules/media/routes");
 
 const app  = express();
-const port = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8080;
 
-/* middleware */
-app.use(cors());
+/* JSON body parsing for /api/config */
 app.use(express.json());
 
-/* API routes */
-app.use(configRoutes);
-app.use(mediaRoutes);
+/* ─────────────── API routes */
+app.use("/api/config", configRoutes);
+app.use("/api/media",  mediaRoutes);
 
-/* static SPA + raw media files ------------------------------------ */
-const __dirname  = path.dirname(fileURLToPath(import.meta.url));
-const mediaRoot  = process.env.MEDIA_ROOT
-  ? path.resolve(process.env.MEDIA_ROOT)
-  : path.join(__dirname, "../../media");
+/* NEW ─────────── introduction banner
+   Returns raw markdown from the INTRO_MD env variable.            */
+const INTRO_MD = process.env.INTRO_MD || "";
+app.get("/api/intro", (_req, res) => {
+  res.type("text/markdown").send(INTRO_MD);
+});
 
-app.use("/media", express.static(mediaRoot));
-app.use(express.static(path.join(__dirname, "../public")));
+/* ─────────────── static files */
+app.use("/media",  express.static(path.resolve(__dirname, "../../media")));
+app.use(express.static(path.resolve(__dirname, "../public")));
+
+/* SPA fallback */
 app.get("*", (_req, res) =>
-  res.sendFile(path.join(__dirname, "../public/index.html"))
+  res.sendFile(path.resolve(__dirname, "../public/index.html")),
 );
 
-app.listen(port, () => {
-  console.log(`Web-Player listening on ${port}`);
-  console.log(`Serving media from: ${mediaRoot}`);
-});
+app.listen(PORT, () =>
+  console.log(`Web-Player listening on http://localhost:${PORT}`),
+);

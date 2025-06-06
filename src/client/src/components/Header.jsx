@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { loadConfig, saveConfig, storedMode } from "../config.js";
+import IntroBanner from "./IntroBanner.jsx";   // ← NEW
 
 function applyMode(mode) {
   let real = mode;
@@ -11,9 +12,8 @@ function applyMode(mode) {
 }
 
 export default function Header() {
-  const p = window.location.pathname;
-  const domain = (window.location.hostname || "Web-Player")
-                 .replace(/^www\./, "");
+  const p      = window.location.pathname;
+  const domain = (window.location.hostname || "Web-Player").replace(/^www\./, "");
 
   /* colour-scheme toggle */
   const [mode, setMode] = useState(storedMode());
@@ -25,8 +25,7 @@ export default function Header() {
   }, [mode]);
 
   function toggleMode() {
-    const next =
-      mode === "light" ? "dark" : mode === "dark" ? "auto" : "light";
+    const next = mode === "light" ? "dark" : mode === "dark" ? "auto" : "light";
     setMode(next);
     saveConfig({ mode: next });
     applyMode(next);
@@ -35,28 +34,26 @@ export default function Header() {
   const modeIcon = mode === "light" ? "☀️" : mode === "dark" ? "🌙" : "🌓";
 
   return (
-    <header className="mod-header">
-      <h1>{domain}</h1>
+    <>
+      <header className="mod-header">
+        <h1>{domain}</h1>
 
-      <nav className="nav-center">
-        <a href="/media"  className={p.startsWith("/media") ? "active" : ""}>
-          Library
-        </a>
-        <a href="/config" className={p === "/config" ? "active" : ""}>
-          Config
-        </a>
-        <a href="/help"   className={p === "/help"   ? "active" : ""}>
-          Help
-        </a>
-      </nav>
+        <nav className="nav-center">
+          <a href="/media"  className={p.startsWith("/media") ? "active" : ""}>Library</a>
+          <a href="/config" className={p === "/config" ? "active" : ""}>Config</a>
+          <a href="/help"   className={p === "/help"   ? "active" : ""}>Help</a>
+        </nav>
 
-      <button
-        className="mode-toggle"
-        onClick={toggleMode}
-        aria-label="Toggle colour mode"
-      >
-        {modeIcon}
-      </button>
-    </header>
+        <button
+          className="mode-toggle"
+          onClick={toggleMode}
+          aria-label="Toggle colour mode"
+        >
+          {modeIcon}
+        </button>
+      </header>
+
+      <IntroBanner />
+    </>
   );
 }
