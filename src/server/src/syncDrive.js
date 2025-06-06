@@ -1,58 +1,103 @@
 /* --------------------------------------------------------------------
- * Pull all .m4a files from a public Google-Drive folder into /app/media
- * – works with nothing but the public-folder ID
- * – re-runs periodically (index.js schedules it)
- * – uses the global fetch built into Node 18+
+ * syncDrive.js  – no-API-key Google-Drive puller with verbose logging
  * ------------------------------------------------------------------ */
 import fs   from "fs/promises";
 import path from "path";
 
-/* ------------------------------------------------------------------ */
-/* 1️⃣  Grab folder HTML in Drive’s lightweight “embed” view           */
-const embedUrl = (id) => `https://drive.google.com/embeddedfolderview?id=${id}#list`;
+/* ───────────────────────── helpers ──────────────────────────────── */
+const stamp = () => new Date().toISOString().replace(/T/, " ").replace(/\..+/, "");
 
-/* 2️⃣  Parse <a href="…/file/d/FILE_ID/…"><span>filename.m4a</span> … */
+const embedUrl = (id) =>
+  `https://drive.google.com/embeddedfolderview?id=${id}#list`;
+
+/* Robust-ish HTML scrape for .m4a links (two markup variants) */
 function parseFiles(html) {
-  const re = /href="https:\/\/drive\.google\.com\/file\/d\/([\w-]+)\/[^"]*".*?<span[^>]*class="flip-entry-title[^"]*"[^>]*>([^<]+\.m4a)<\/span>/gi;
   const out = [];
-  let m;
-  while ((m = re.exec(html))) out.push({ id: m[1], name: m[2].trim() });
-  return out;
+  const patterns = [
+    /data-id="([\w-]+)".*?<span[^>]*>([^<]+\.m4a)<\/span>/gis, // newer markup
+    /href="https:\/\/drive\.google\.com\/file\/d\/([\w-]+)\/[^"]*".*?<span[^>]*>([^<]+\.m4a)<\/span>/gis, // older
+  ];
+  for (const re of patterns) {
+    let m;
+    while ((m = re.exec(html))) out.push({ id: m[1], name: m[2].trim() });
+    if (out.length) break; // first pattern that works wins
+  }
+  /* de-duplicate (same file can appear twice in HTML) */
+  const seen = new Set();
+  return out.filter((f) => (seen.has(f.id) ? false : seen.add(f.id)));
 }
 
-/* 3️⃣  Download the file only if it’s not present already */
 async function download({ id, name }, mediaRoot) {
   const dest = path.join(mediaRoot, name);
-  try { await fs.access(dest); return; }        // already there – skip
-  catch { /* fall through */ }
-
+  console.log(`[${stamp()}]   ↪︎ downloading ${name} …`);
   const url  = `https://drive.google.com/uc?export=download&id=${id}`;
   const res  = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const buf  = new Uint8Array(await res.arrayBuffer());
-  await fs.writeFile(dest, buf);
-  console.log(`✓  ${name}`);
+  await fs.writeFile(dest, new Uint8Array(await res.arrayBuffer()));
+  console.log(`[${stamp()}]   ✓ saved ${name}`);
 }
 
-/* ------------------------------------------------------------------ */
-/* Main entry exported to index.js                                    */
+async function wipe(mediaRoot) {
+  try {
+    const files = await fs.readdir(mediaRoot, { withFileTypes: true });
+    const removed = [];
+    for (const f of files) {
+      if (f.isFile()) {
+        await fs.unlink(path.join(mediaRoot, f.name));
+        removed.push(f.name);
+      }
+    }
+    console.log(
+      `[${stamp()}]   ◼ cleared ${removed.length} local file(s): ${removed.join(
+        ", ",
+      ) || "(none)"}`
+    );
+  } catch {
+    /* dir may not exist yet – create it */
+    await fs.mkdir(mediaRoot, { recursive: true });
+  }
+}
+
+/* ───────────────────────── main entry ───────────────────────────── */
 export default async function syncDrive(mediaRoot) {
   const folderId = process.env.DRIVE_FOLDER_ID;
   if (!folderId) {
-    console.warn("Drive-sync skipped – DRIVE_FOLDER_ID not set.");
+    console.warn(`[${stamp()}] Drive-sync skipped – DRIVE_FOLDER_ID not set.`);
     return;
   }
 
+  console.log(
+    `[${stamp()}] Drive-sync starting (folder ${folderId}, root ${mediaRoot})`,
+  );
+
   try {
-    const html  = await fetch(embedUrl(folderId)).then(r => r.text());
+    /* 1️⃣  wipe the current library */
+    await wipe(mediaRoot);
+
+    /* 2️⃣  pull the public folder’s HTML & parse */
+    const html  = await fetch(embedUrl(folderId)).then((r) => r.text());
+    console.log(
+      `[${stamp()}]   fetched embed page (${html.length} bytes)`,
+    );
+
     const files = parseFiles(html);
+    console.log(
+      `[${stamp()}]   found ${files.length} .m4a file(s) in Drive`,
+      files.length ? `: ${files.map((f) => f.name).join(", ")}` : "",
+    );
+
     if (files.length === 0) {
-      console.warn("Drive-sync: no .m4a files found in the folder.");
+      console.warn(
+        `[${stamp()}]   ⚠ no .m4a files detected – folder markup may have changed.`,
+      );
       return;
     }
-    await fs.mkdir(mediaRoot, { recursive: true });
+
+    /* 3️⃣  download them one by one */
     for (const f of files) await download(f, mediaRoot);
+
+    console.log(`[${stamp()}] Drive-sync finished – library up-to-date`);
   } catch (err) {
-    console.error("Drive-sync error:", err.message);
+    console.error(`[${stamp()}] Drive-sync error:`, err.message);
   }
 }
