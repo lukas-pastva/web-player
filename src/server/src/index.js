@@ -4,30 +4,28 @@ import path     from "path";
 import { fileURLToPath } from "url";
 import dotenv   from "dotenv";
 
-import configRoutes from "./modules/config/routes.js";
-import mediaRoutes  from "./modules/media/routes.js";
+import mediaRoutes from "./modules/media/routes.js";
 
-dotenv.config();                                // ⟵ no DB sync needed
+dotenv.config();
 
 const app  = express();
 const port = process.env.PORT || 8080;
 
-/* middleware */
+/* ── middleware ─────────────────────────────────────────────── */
 app.use(cors());
 app.use(express.json());
 
-/* ───────────────────────────── API routes */
-app.use(configRoutes);                // → /api/config (inside file)
-app.use("/api/media", mediaRoutes);   // ✅ now on /api/media
+/* ── API routes ─────────────────────────────────────────────── */
+app.use("/api/media", mediaRoutes);   // folder listings
 
-/* ───────────────────────────── static SPA + raw media */
-const __dirname  = path.dirname(fileURLToPath(import.meta.url));
-const mediaRoot  = process.env.MEDIA_ROOT
+/* ── static assets & raw media ─────────────────────────────── */
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const mediaRoot = process.env.MEDIA_ROOT
   ? path.resolve(process.env.MEDIA_ROOT)
   : path.join(__dirname, "../../media");
 
-app.use("/media", express.static(mediaRoot));               // MP3 files
-app.use(express.static(path.join(__dirname, "../public"))); // React build
+app.use("/media",  express.static(mediaRoot));                    // MP3 files
+app.use(express.static(path.join(__dirname, "../public")));       // React build
 app.get("*", (_req, res) =>
   res.sendFile(path.join(__dirname, "../public/index.html"))
 );

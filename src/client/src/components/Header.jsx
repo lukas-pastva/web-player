@@ -1,78 +1,18 @@
-import React, { useState, useEffect } from "react";
-import ReactMarkdown            from "react-markdown";   /* ← NEW */
-import { loadConfig, saveConfig, storedMode } from "../config.js";
-
-function applyMode(mode) {
-  let real = mode;
-  if (mode === "auto") {
-    const h = new Date().getHours();
-    real = h >= 7 && h < 19 ? "light" : "dark";
-  }
-  document.documentElement.setAttribute("data-mode", real);
-}
+import React from "react";
 
 export default function Header() {
   const p      = window.location.pathname;
-  const domain = (window.location.hostname || "Web-Player")
-                 .replace(/^www\./, "");
-
-  /* colour-scheme toggle */
-  const [mode, setMode] = useState(storedMode());
-
-  useEffect(() => {
-    if (mode !== "auto") return;
-    const id = setInterval(() => applyMode("auto"), 30 * 60 * 1000);
-    return () => clearInterval(id);
-  }, [mode]);
-
-  function toggleMode() {
-    const next =
-      mode === "light" ? "dark" : mode === "dark" ? "auto" : "light";
-    setMode(next);
-    saveConfig({ mode: next });
-    applyMode(next);
-  }
-
-  const modeIcon = mode === "light" ? "☀️" : mode === "dark" ? "🌙" : "🌓";
-
-  /* intro banner text (Markdown) */
-  const { intro = "" } = loadConfig();
+  const domain = (window.location.hostname || "Web-Player").replace(/^www\./, "");
 
   return (
-    <>
-      <header className="mod-header">
-        <h1>{domain}</h1>
+    <header className="mod-header">
+      <h1>{domain}</h1>
 
-        <nav className="nav-center">
-          <a href="/media"  className={p.startsWith("/media") ? "active" : ""}>
-            Library
-          </a>
-          <a href="/config" className={p === "/config" ? "active" : ""}>
-            Config
-          </a>
-          <a href="/help"   className={p === "/help"   ? "active" : ""}>
-            Help
-          </a>
-        </nav>
-
-        <button
-          className="mode-toggle"
-          onClick={toggleMode}
-          aria-label="Toggle colour mode"
-        >
-          {modeIcon}
-        </button>
-      </header>
-
-      {/* intro banner (renders on every page) */}
-      {intro && (
-        <section
-          className="card"
-          style={{ margin: "1rem", marginTop: "1.5rem", maxWidth: 900 }}
-        >
-          <ReactMarkdown>{intro}</ReactMarkdown>
-        </section>
-      )}
-    </>
+      <nav className="nav-center">
+        <a href="/media" className={p.startsWith("/media") ? "active" : ""}>
+          Library
+        </a>
+      </nav>
+    </header>
   );
 }
