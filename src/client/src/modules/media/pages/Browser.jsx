@@ -14,9 +14,6 @@ const crumbs = (rel = "") =>
       path: rel.split("/").slice(0, i + 1).join("/"),
     }));
 
-// detect mobile user-agent
-const isMobile = typeof navigator !== "undefined" && /Mobi|Android/i.test(navigator.userAgent);
-
 export default function MediaBrowser() {
   /* pull in intro text from env or build-time VITE_ var */
   const introText = window.ENV_INTRO_TEXT ?? import.meta.env.VITE_INTRO_TEXT ?? "";
@@ -83,11 +80,8 @@ export default function MediaBrowser() {
     }
   }, [playIdx, userStart]);
 
-  /* ── AudioContext / analyser (desktop only) ---------------------- */
+  /* ── Web Audio analyser ----------------------------------------- */
   function ensureAnalyser() {
-    // on mobile, always skip analyzer so audio plays under native engine
-    if (isMobile) return;
-
     if (!audioCtx.current) {
       audioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
       const src = audioCtx.current.createMediaElementSource(audioRef.current);
@@ -133,7 +127,7 @@ export default function MediaBrowser() {
   }
   useEffect(() => () => cancelAnimationFrame(rafId.current), []);
 
-  /* resume context on focus (desktop) ----------------------------- */
+  /* resume context when page/tab regains focus -------------------- */
   function resumeCtx() {
     if (audioCtx.current && audioCtx.current.state === "suspended") {
       audioCtx.current.resume();
@@ -176,13 +170,14 @@ export default function MediaBrowser() {
       )}
 
       <main>
-        {/* player */}
+        {/* sticky player box */}
         <section className="card player-box">
           {playing ? (
             <>
               <p style={{ wordBreak: "break-all", marginBottom: "0.6rem" }}>
                 {playing}
               </p>
+
               <label style={{ fontWeight: 600, marginRight: 6 }}>
                 Playback mode:
               </label>
@@ -196,6 +191,7 @@ export default function MediaBrowser() {
                 <option value="shuffle">Shuffle</option>
                 <option value="repeatOne">Repeat one</option>
               </select>
+
               <audio
                 ref={audioRef}
                 src={`/media/${enc(playing)}`}
@@ -204,8 +200,9 @@ export default function MediaBrowser() {
                 onPlay={ensureAnalyser}
                 onEnded={onEnded}
               />
-              {/* EQ only on desktop */}
-              {!isMobile && <canvas ref={canvasRef} className="eq-canvas" />}
+
+              {/* equaliser */}
+              <canvas ref={canvasRef} className="eq-canvas" />
             </>
           ) : (
             <p><em>No MP3 files in this folder</em></p>
@@ -215,21 +212,29 @@ export default function MediaBrowser() {
         {/* library browser */}
         <section className="card">
           <h2 style={{ marginTop: 0 }}>Media library</h2>
+
           {(dir.directories.length > 0 || dir.path) && (
             <div style={{ marginBottom: "1rem" }}>
               <strong>Path:&nbsp;</strong>
               <button className="crumb-btn" onClick={() => load("")}>/</button>
               {crumbs(dir.path).map((c) => (
-                <button key={c.path} className="crumb-btn" onClick={() => load(c.path)}>
+                <button
+                  key={c.path}
+                  className="crumb-btn"
+                  onClick={() => load(c.path)}
+                >
                   {c.name}
                 </button>
               ))}
             </div>
           )}
+
           {loading && <p>Loading…</p>}
           {err && <p style={{ color: "red" }}>Error: {err}</p>}
+
           {!loading && !err && (
             <>
+              {/* folders */}
               {dir.directories.length > 0 && (
                 <>
                   <h3>Folders</h3>
@@ -237,15 +242,18 @@ export default function MediaBrowser() {
                     <ul style={{ listStyle: "none", paddingLeft: 0, margin: 0 }}>
                       {dir.directories.map((d) => (
                         <li key={d}>📁{' '}
-                          <button className="crumb-btn" onClick={() => load(dir.path ? `${dir.path}/${d}` : d)}>
-                            {d}
-                          </button>
+                          <button
+                            className="crumb-btn"
+                            onClick={() => load(dir.path ? `${dir.path}/${d}` : d)}
+                          >{d}</button>
                         </li>
                       ))}
                     </ul>
                   </div>
                 </>
               )}
+
+              {/* mp3 list */}
               {playlist.length > 0 && (
                 <>
                   <div className="scroll-list">
@@ -262,6 +270,7 @@ export default function MediaBrowser() {
                   </div>
                 </>
               )}
+
               {dir.directories.length === 0 && playlist.length === 0 && (
                 <p><em>Folder is empty.</em></p>
               )}
