@@ -217,22 +217,23 @@ export default function MediaBrowser() {
         <section className="card" style={{ maxWidth: 900 }}>
           <h2 style={{ marginTop: 0 }}>Media library</h2>
 
-          {/* breadcrumbs */}
-          <div style={{ marginBottom: "1rem" }}>
-            <strong>Path:&nbsp;</strong>
-            <button className="crumb-btn" onClick={() => load("")}>
-              /
-            </button>
-            {crumbs(dir.path).map((c) => (
-              <button
-                key={c.path}
-                className="crumb-btn"
-                onClick={() => load(c.path)}
-              >
-                {c.name}
+          {/* breadcrumbs (hidden when only flat files at root) */}
+          {(dir.directories.length > 0 || dir.path) && (
+            <div style={{ marginBottom: "1rem" }}>
+              <strong>Path:&nbsp;</strong>
+              <button className="crumb-btn" onClick={() => load("")}>/
               </button>
-            ))}
-          </div>
+              {crumbs(dir.path).map((c) => (
+                <button
+                  key={c.path}
+                  className="crumb-btn"
+                  onClick={() => load(c.path)}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          )}
 
           {loading && <p>Loading…</p>}
 
@@ -252,7 +253,7 @@ export default function MediaBrowser() {
                     >
                       {dir.directories.map((d) => (
                         <li key={d}>
-                          📁{" "}
+                          📁{' '}
                           <button
                             className="crumb-btn"
                             onClick={() =>
@@ -284,7 +285,7 @@ export default function MediaBrowser() {
                         const name = rel.split("/").pop();
                         return (
                           <li key={rel}>
-                            🎵{" "}
+                            🎵{' '}
                             <button
                               className="crumb-btn"
                               onClick={() => startTrack(i)}
