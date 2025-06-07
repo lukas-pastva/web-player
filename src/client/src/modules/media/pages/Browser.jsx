@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import ReactMarkdown from "react-markdown";
 import Header from "../../../components/Header.jsx";
 import api from "../api.js";
 
@@ -14,6 +15,10 @@ const crumbs = (rel = "") =>
     }));
 
 export default function MediaBrowser() {
+  /* pull in intro text from env or build-time VITE_ var */
+  const introText =
+    window.ENV_INTRO_TEXT ?? import.meta.env.VITE_INTRO_TEXT ?? "";
+
   /* directory & playlist ------------------------------------------ */
   const [dir, setDir] = useState({ path: "", directories: [], files: [] });
   const [playlist, setList] = useState([]);
@@ -162,11 +167,16 @@ export default function MediaBrowser() {
     <>
       <Header />
 
+      {/* render intro text from INTRO_TEXT env var */}
+      {introText && (
+        <section className="card intro-text" style={{ maxWidth: 900, margin: '1rem auto' }}>
+          <ReactMarkdown>{introText}</ReactMarkdown>
+        </section>
+      )}
+
       <main>
         {/* sticky player box */}
         <section className="card player-box">
-          <h3 style={{ marginTop: 0 }}>Now playing</h3>
-
           {playing ? (
             <>
               <p
@@ -213,7 +223,7 @@ export default function MediaBrowser() {
           )}
         </section>
 
-        {/* library browser */}
+        {/* library browser */}  
         <section className="card" style={{ maxWidth: 900 }}>
           <h2 style={{ marginTop: 0 }}>Media library</h2>
 
@@ -308,7 +318,7 @@ export default function MediaBrowser() {
             </>
           )}
         </section>
-      </main>
+     </main>
     </>
   );
 }

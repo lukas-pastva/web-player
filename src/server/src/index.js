@@ -1,6 +1,7 @@
 import express  from "express";
 import cors     from "cors";
 import path     from "path";
+import fs       from "fs";
 import { fileURLToPath } from "url";
 import dotenv   from "dotenv";
 
@@ -27,9 +28,16 @@ const mediaRoot = process.env.MEDIA_ROOT
 
 app.use("/media",  express.static(mediaRoot));                    // MP3 files
 app.use(express.static(path.join(__dirname, "../public")));       // React build
-app.get("*", (_req, res) =>
-  res.sendFile(path.join(__dirname, "../public/index.html"))
-);
+
+/* ── serve index.html with INTRO_TEXT injection ──────────────── */
+app.get("*", (_req, res) => {
+  const indexPath = path.join(__dirname, "../public/index.html");
+  let html = fs.readFileSync(indexPath, "utf8");
+  const intro = process.env.INTRO_TEXT || "";
+  const script = `<script>window.ENV_INTRO_TEXT = ${JSON.stringify(intro)};</script>`;
+  html = html.replace("</head>", `${script}</head>`);
+  res.send(html);
+});
 
 app.listen(port, () => {
   console.log(`Web-Player listening on ${port}`);
