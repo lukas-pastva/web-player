@@ -185,10 +185,7 @@ export default function MediaBrowser() {
           {playing ? (
             <>
               <p
-                style={{
-                  wordBreak: "break-all",
-                  marginBottom: "0.6rem",
-                }}
+                style={{ wordBreak: "break-all", marginBottom: "0.6rem" }}
               >
                 {playing}
               </p>
@@ -216,8 +213,8 @@ export default function MediaBrowser() {
                 onEnded={onEnded}
               />
 
-              {/* equaliser */}
-              {!isMobile && <canvas ref={canvasRef} className="eq-canvas" />} 
+              {/* equaliser - always rendered */}
+              <canvas ref={canvasRef} className="eq-canvas" />
             </>
           ) : (
             <p><em>No MP3 files in this folder</em></p>
@@ -269,7 +266,7 @@ export default function MediaBrowser() {
                 </>
               )}
 
-              {/* слушать список */}
+              {/* mp3 list */}
               {playlist.length > 0 && (
                 <>
                   <div className="scroll-list">
