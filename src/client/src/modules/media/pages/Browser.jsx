@@ -14,6 +14,10 @@ const crumbs = (rel = "") =>
       path: rel.split("/").slice(0, i + 1).join("/"),
     }));
 
+// detect mobile user-agent
+const isMobile =
+  typeof navigator !== "undefined" && /Mobi|Android/i.test(navigator.userAgent);
+
 export default function MediaBrowser() {
   /* pull in intro text from env or build-time VITE_ var */
   const introText =
@@ -70,8 +74,6 @@ export default function MediaBrowser() {
   function startTrack(idx) {
     setIdx(idx);
     setUsr(true);
-
-    /* play right away – still within user gesture */
     setTimeout(() => {
       if (audioRef.current) audioRef.current.play().catch(() => {});
     }, 0);
@@ -84,8 +86,11 @@ export default function MediaBrowser() {
     }
   }, [playIdx, userStart]);
 
-  /* ── AudioContext / analyser ------------------------------------ */
+  /* ── AudioContext / analyser (skip on mobile) ------------------- */
   function ensureAnalyser() {
+    // skip Web Audio API on mobile to allow native background play
+    if (isMobile) return;
+
     if (!audioCtx.current) {
       audioCtx.current =
         new (window.AudioContext || window.webkitAudioContext)();
@@ -204,7 +209,7 @@ export default function MediaBrowser() {
 
               <audio
                 ref={audioRef}
-                src={`/media/${enc(playing)}`} 
+                src={`/media/${enc(playing)}`}
                 controls
                 style={{ width: "100%" }}
                 onPlay={ensureAnalyser}
@@ -212,7 +217,7 @@ export default function MediaBrowser() {
               />
 
               {/* equaliser */}
-              <canvas ref={canvasRef} className="eq-canvas" />
+              {!isMobile && <canvas ref={canvasRef} className="eq-canvas" />} 
             </>
           ) : (
             <p><em>No MP3 files in this folder</em></p>
@@ -264,7 +269,7 @@ export default function MediaBrowser() {
                 </>
               )}
 
-              {/* mp3 list */}
+              {/* слушать список */}
               {playlist.length > 0 && (
                 <>
                   <div className="scroll-list">
