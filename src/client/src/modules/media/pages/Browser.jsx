@@ -169,7 +169,7 @@ export default function MediaBrowser() {
 
       {/* render intro text from INTRO_TEXT env var */}
       {introText && (
-        <section className="card intro-text" style={{ maxWidth: 900, margin: '1rem auto' }}>
+        <section className="card intro-text" style={{ margin: "1rem" }}>
           <ReactMarkdown>{introText}</ReactMarkdown>
         </section>
       )}
@@ -188,9 +188,7 @@ export default function MediaBrowser() {
                 {playing}
               </p>
 
-              <label
-                style={{ fontWeight: 600, marginRight: 6 }}
-              >
+              <label style={{ fontWeight: 600, marginRight: 6 }}>
                 Playback mode:
               </label>
               <select
@@ -206,10 +204,10 @@ export default function MediaBrowser() {
 
               <audio
                 ref={audioRef}
-                src={`/media/${enc(playing)}`}
+                src={`/media/${enc(playing)}`} 
                 controls
                 style={{ width: "100%" }}
-                onPlay={ensureAnalyser}   /* create / resume every play */
+                onPlay={ensureAnalyser}
                 onEnded={onEnded}
               />
 
@@ -217,22 +215,19 @@ export default function MediaBrowser() {
               <canvas ref={canvasRef} className="eq-canvas" />
             </>
           ) : (
-            <p>
-              <em>No MP3 files in this folder</em>
-            </p>
+            <p><em>No MP3 files in this folder</em></p>
           )}
         </section>
 
-        {/* library browser */}  
-        <section className="card" style={{ maxWidth: 900 }}>
+        {/* library browser */}
+        <section className="card">
           <h2 style={{ marginTop: 0 }}>Media library</h2>
 
-          {/* breadcrumbs (hidden when only flat files at root) */}
+          {/* breadcrumbs */}
           {(dir.directories.length > 0 || dir.path) && (
             <div style={{ marginBottom: "1rem" }}>
               <strong>Path:&nbsp;</strong>
-              <button className="crumb-btn" onClick={() => load("")}>/
-              </button>
+              <button className="crumb-btn" onClick={() => load("")}>/</button>
               {crumbs(dir.path).map((c) => (
                 <button
                   key={c.path}
@@ -246,32 +241,22 @@ export default function MediaBrowser() {
           )}
 
           {loading && <p>Loading…</p>}
+          {err && <p style={{ color: "red" }}>Error: {err}</p>}
 
-          {!loading && (
+          {!loading && !err && (
             <>
               {/* folders */}
               {dir.directories.length > 0 && (
                 <>
                   <h3>Folders</h3>
                   <div className="scroll-list">
-                    <ul
-                      style={{
-                        listStyle: "none",
-                        paddingLeft: 0,
-                        margin: 0,
-                      }}
-                    >
+                    <ul style={{ listStyle: "none", paddingLeft: 0, margin: 0 }}>
                       {dir.directories.map((d) => (
-                        <li key={d}>
-                          📁{' '}
+                        <li key={d}>📁{' '}
                           <button
                             className="crumb-btn"
-                            onClick={() =>
-                              load(dir.path ? `${dir.path}/${d}` : d)
-                            }
-                          >
-                            {d}
-                          </button>
+                            onClick={() => load(dir.path ? `${dir.path}/${d}` : d)}
+                          >{d}</button>
                         </li>
                       ))}
                     </ul>
@@ -282,26 +267,13 @@ export default function MediaBrowser() {
               {/* mp3 list */}
               {playlist.length > 0 && (
                 <>
-                  <h3>MP3 files</h3>
                   <div className="scroll-list">
-                    <ul
-                      style={{
-                        listStyle: "none",
-                        paddingLeft: 0,
-                        margin: 0,
-                      }}
-                    >
+                    <ul style={{ listStyle: "none", paddingLeft: 0, margin: 0 }}>
                       {playlist.map((rel, i) => {
                         const name = rel.split("/").pop();
                         return (
-                          <li key={rel}>
-                            🎵{' '}
-                            <button
-                              className="crumb-btn"
-                              onClick={() => startTrack(i)}
-                            >
-                              {name}
-                            </button>
+                          <li key={rel}>🎵{' '}
+                            <button className="crumb-btn" onClick={() => startTrack(i)}>{name}</button>
                           </li>
                         );
                       })}
@@ -311,14 +283,12 @@ export default function MediaBrowser() {
               )}
 
               {dir.directories.length === 0 && playlist.length === 0 && (
-                <p>
-                  <em>Folder is empty.</em>
-                </p>
+                <p><em>Folder is empty.</em></p>
               )}
             </>
           )}
         </section>
-     </main>
+      </main>
     </>
   );
 }
