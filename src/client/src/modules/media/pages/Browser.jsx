@@ -86,10 +86,10 @@ export default function MediaBrowser() {
     }
   }, [playIdx, userStart]);
 
-  /* ── AudioContext / analyser (skip on mobile) ------------------- */
+  /* ── AudioContext / analyser ------------------------------------ */
   function ensureAnalyser() {
-    // skip Web Audio API on mobile to allow native background play
-    if (isMobile) return;
+    // skip analysing only when page hidden on mobile to allow background audio
+    if (isMobile && document.hidden) return;
 
     if (!audioCtx.current) {
       audioCtx.current =
@@ -144,10 +144,10 @@ export default function MediaBrowser() {
     }
   }
   useEffect(() => {
-    window.addEventListener("visibilitychange", resumeCtx);
+    document.addEventListener("visibilitychange", resumeCtx);
     window.addEventListener("focus", resumeCtx);
     return () => {
-      window.removeEventListener("visibilitychange", resumeCtx);
+      document.removeEventListener("visibilitychange", resumeCtx);
       window.removeEventListener("focus", resumeCtx);
     };
   }, []);
@@ -184,9 +184,7 @@ export default function MediaBrowser() {
         <section className="card player-box">
           {playing ? (
             <>
-              <p
-                style={{ wordBreak: "break-all", marginBottom: "0.6rem" }}
-              >
+              <p style={{ wordBreak: "break-all", marginBottom: "0.6rem" }}>
                 {playing}
               </p>
 
@@ -213,7 +211,7 @@ export default function MediaBrowser() {
                 onEnded={onEnded}
               />
 
-              {/* equaliser - always rendered */}
+              {/* equaliser */}
               <canvas ref={canvasRef} className="eq-canvas" />
             </>
           ) : (
