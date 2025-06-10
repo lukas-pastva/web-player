@@ -1,7 +1,10 @@
 /* src/client/src/modules/media/pages/Browser.jsx
  * ───────────────────────────────────────────────────────────
- * Media browser + player –  keeps INTRO_TEXT banner
- * and supports both .mp3 / .m4a tracks.
+ * Media browser + player
+ *   • supports .mp3 & .m4a
+ *   • Media-Session keeps audio alive on lock-screen
+ *   • Equaliser draws while page is visible, pauses when hidden
+ *   • INTRO_TEXT banner injected by the server
  * ─────────────────────────────────────────────────────────── */
 
 import React, { useEffect, useState, useRef } from "react";
@@ -21,73 +24,84 @@ const crumbs = (rel = "") =>
     }));
 
 export default function MediaBrowser() {
-  /* 🛈  intro text pulled from server-side injection or build-time env */
+  /* 🛈 intro text (server-side injection or build-time env) */
   const introText =
     window.ENV_INTRO_TEXT ?? import.meta.env.VITE_INTRO_TEXT ?? "";
 
-  /* directory & playlist ------------------------------------------ */
-  const [dir, setDir] = useState({ path: "", directories: [], files: [] });
-  const [playlist, setList] = useState([]);
+  /* directory & playlist ----------------------------------- */
+  const [dir, setDir]   = useState({ path: "", directories: [], files: [] });
+  const [playlist, set] = useState([]);
 
-  /* player state --------------------------------------------------- */
-  const [playIdx, setIdx]   = useState(-1);
-  const [userStart, setUsr] = useState(false);
-  const [mode, setMode]     = useState("sequential"); // none|sequential|shuffle|repeatOne
+  /* player state ------------------------------------------- */
+  const [playIdx,  setIdx]  = useState(-1);
+  const [userInit, setUI ]  = useState(false);
+  const [mode,     setMode] = useState("sequential"); // none|sequential|shuffle|repeatOne
+  const playing = playIdx >= 0 ? playlist[playIdx] : null;
 
-  const audioRef   = useRef(null);
-  const canvasRef  = useRef(null);
-  const audioCtx   = useRef(null);
-  const analyser   = useRef(null);
-  const rafId      = useRef(null);
+  /* refs ---------------------------------------------------- */
+  const audioRef  = useRef(null);
+  const canvasRef = useRef(null);
+  const audioCtx  = useRef(null);
+  const analyser  = useRef(null);
+  const rafId     = useRef(null);
+  const drawing   = useRef(false); // loop running?
 
-  /* ui state */
-  const [loading, setLoad] = useState(true);
-  const [err,     setErr]  = useState("");
+  /* UI flags */
+  const [loading, setLoading] = useState(true);
+  const [err,     setErr]     = useState("");
 
-  /* ── load directory --------------------------------------------- */
+  /* ───────────────────── load directory */
   const load = (p = "") => {
-    setLoad(true);
+    setLoading(true);
     api
       .list(p)
       .then((d) => {
         setDir(d);
-        setLoad(false);
+        setLoading(false);
       })
       .catch((e) => {
         setErr(e.message);
-        setLoad(false);
+        setLoading(false);
       });
   };
   useEffect(() => load(""), []);
 
-  /* rebuild playlist on dir change -------------------------------- */
+  /* rebuild playlist whenever dir changes */
   useEffect(() => {
     const list = dir.files
-      .filter((f) => /\.(mp3|m4a)$/i.test(f))          // ← supports both
+      .filter((f) => /\.(mp3|m4a)$/i.test(f))
       .map((f) => (dir.path ? `${dir.path}/${f}` : f));
-    setList(list);
+
+    set(list);
     setIdx(list.length ? 0 : -1);
-    setUsr(false);
+    setUI(false);
   }, [dir]);
 
-  const playing = playIdx >= 0 ? playlist[playIdx] : null;
-
-  /* user clicks an audio button ----------------------------------- */
-  function startTrack(idx) {
-    setIdx(idx);
-    setUsr(true);
-    /* play immediately – still inside user gesture */
-    setTimeout(() => {
-      audioRef.current?.play().catch(() => {});
-    }, 0);
+  /* user clicks a track */
+  function startTrack(i) {
+    setIdx(i);
+    setUI(true);
+    /* play immediately (still inside gesture) */
+    setTimeout(() => audioRef.current?.play().catch(() => {}), 0);
   }
 
-  /* autoplay chain ----------------------------------------------- */
+  /* continue autoplay */
   useEffect(() => {
-    if (userStart) audioRef.current?.play().catch(() => {});
-  }, [playIdx, userStart]);
+    if (userInit) audioRef.current?.play().catch(() => {});
+  }, [playIdx, userInit]);
 
-  /* ── AudioContext / analyser ------------------------------------ */
+  /* ───────────────────── equaliser infra */
+  function startEq() {
+    if (drawing.current || !analyser.current) return;
+    drawing.current = true;
+    drawEq();
+  }
+  function stopEq() {
+    if (!drawing.current) return;
+    cancelAnimationFrame(rafId.current);
+    drawing.current = false;
+  }
+
   function ensureAnalyser() {
     if (!audioCtx.current) {
       audioCtx.current =
@@ -96,8 +110,8 @@ export default function MediaBrowser() {
       analyser.current = audioCtx.current.createAnalyser();
       analyser.current.fftSize = 256;
       src.connect(analyser.current).connect(audioCtx.current.destination);
-      drawEq();
     }
+    startEq();
     if (audioCtx.current.state === "suspended") audioCtx.current.resume();
   }
 
@@ -122,29 +136,37 @@ export default function MediaBrowser() {
       analyser.current.getByteFrequencyData(buffer);
       ctx.clearRect(0, 0, cssW, cssH);
       buffer.forEach((v, i) => {
-        const barH = (v / 255) * cssH;
+        const h = (v / 255) * cssH;
         ctx.fillStyle = "#3b82f6";
-        ctx.fillRect(i * barW, cssH - barH, barW - 1, barH);
+        ctx.fillRect(i * barW, cssH - h, barW - 1, h);
       });
       rafId.current = requestAnimationFrame(render);
     };
     render();
   }
-  useEffect(() => () => cancelAnimationFrame(rafId.current), []);
 
-  /* resume context when page/tab regains focus -------------------- */
+  /* pause / resume on visibility --------------------------------- */
   useEffect(() => {
-    const resume = () =>
-      audioCtx.current?.state === "suspended" && audioCtx.current.resume();
-    window.addEventListener("visibilitychange", resume);
-    window.addEventListener("focus", resume);
+    const handleVis = () => {
+      if (document.visibilityState === "visible") {
+        audioCtx.current?.resume();
+        startEq();
+      } else {
+        stopEq();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVis);
+    window.addEventListener("focus", handleVis);
     return () => {
-      window.removeEventListener("visibilitychange", resume);
-      window.removeEventListener("focus", resume);
+      document.removeEventListener("visibilitychange", handleVis);
+      window.removeEventListener("focus", handleVis);
     };
   }, []);
 
-  /* handle track end ---------------------------------------------- */
+  /* cleanup on unmount */
+  useEffect(() => () => stopEq(), []);
+
+  /* handle track end */
   function onEnded() {
     if (mode === "repeatOne") {
       audioRef.current.currentTime = 0;
@@ -160,12 +182,11 @@ export default function MediaBrowser() {
     }
   }
 
-  /* ───────────────────────── render ────────────────────────────── */
+  /* ───────────────────── render */
   return (
     <>
       <Header />
 
-      {/* intro banner (hidden if no text) */}
       {introText && (
         <section className="card intro-text" style={{ margin: "1rem" }}>
           <ReactMarkdown>{introText}</ReactMarkdown>
@@ -173,7 +194,7 @@ export default function MediaBrowser() {
       )}
 
       <main>
-        {/* sticky player box */}
+        {/* sticky player */}
         <section className="card player-box">
           {playing ? (
             <>
@@ -217,10 +238,9 @@ export default function MediaBrowser() {
         <section className="card" style={{ maxWidth: 900 }}>
           <h2 style={{ marginTop: 0 }}>Media library</h2>
 
-          {/* breadcrumbs */}
           <div style={{ marginBottom: "1rem" }}>
             <strong>Path:&nbsp;</strong>
-            <button className="crumb-btn" onClick={() => load("")}>
+            <button className="crumb-btn" onClick={() => load("/")}>
               /
             </button>
             {crumbs(dir.path).map((c) => (
@@ -235,11 +255,10 @@ export default function MediaBrowser() {
           </div>
 
           {loading && <p>Loading…</p>}
-          {err && <p style={{ color: "red" }}>{err}</p>}
+          {err      && <p style={{ color: "red" }}>{err}</p>}
 
           {!loading && !err && (
             <>
-              {/* folders */}
               {dir.directories.length > 0 && (
                 <>
                   <h3>Folders</h3>
@@ -263,7 +282,6 @@ export default function MediaBrowser() {
                 </>
               )}
 
-              {/* audio list */}
               {playlist.length > 0 && (
                 <>
                   <h3>Audio files</h3>
