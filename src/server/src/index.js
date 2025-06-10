@@ -1,7 +1,10 @@
 /* src/server/src/index.js
  * ─────────────────────────────────────────────────────────────
- * Express server – injects INTRO_TEXT *before* React bundle
- * so window.ENV_INTRO_TEXT is defined when index.jsx runs.
+ * Express server
+ *   – /api/media  → folder JSON
+ *   – /media/**   → raw audio files
+ *   – /assets/**  → Vite-generated JS/CSS/img
+ *   – *           → index.html with INTRO_TEXT injected
  * ──────────────────────────────────────────────────────────── */
 import express  from "express";
 import cors     from "cors";
@@ -18,48 +21,45 @@ dotenv.config();
 const app  = express();
 const port = process.env.PORT || 8080;
 
-/* ── middleware ─────────────────────────────────────────────── */
-app.use(cors());
-app.use(express.json());
-
-/* ── API routes ─────────────────────────────────────────────── */
-app.use("/api/media", mediaRoutes);   // folder listings
-
-/* ── static assets & raw media ─────────────────────────────── */
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const mediaRoot = process.env.MEDIA_ROOT
+/* ── paths ─────────────────────────────────────────────────── */
+const __dirname  = path.dirname(fileURLToPath(import.meta.url));
+const PUBLIC_DIR = path.join(__dirname, "../public");
+const MEDIA_ROOT = process.env.MEDIA_ROOT
   ? path.resolve(process.env.MEDIA_ROOT)
   : path.join(__dirname, "../../media");
 
-app.use("/media",  express.static(mediaRoot));                 // audio files
-app.use(express.static(path.join(__dirname, "../public")));    // React build
+/* ── middleware ────────────────────────────────────────────── */
+app.use(cors());
+app.use(express.json());
 
-/* ── serve index.html with INTRO_TEXT injection ─────────────── */
+/* API – JSON folder listings */
+app.use("/api/media", mediaRoutes);
+
+/* Static assets */
+app.use("/media",   express.static(MEDIA_ROOT));           // audio
+app.use("/assets",  express.static(path.join(PUBLIC_DIR, "assets"))); // js/css/img/etc
+
+/* ── HTML shell with INTRO_TEXT ───────────────────────────── */
 app.get("*", (_req, res) => {
-  const indexPath = path.join(__dirname, "../public/index.html");
-  let   html      = fs.readFileSync(indexPath, "utf8");
+  const indexPath = path.join(PUBLIC_DIR, "index.html");
+  let html        = fs.readFileSync(indexPath, "utf8");
 
-  /* Inject *before* the FIRST module script so global is ready
-     even after Vite fingerprints the filename. */
-  const intro   = process.env.INTRO_TEXT || "";
-  const snippet = `<script>window.ENV_INTRO_TEXT = ${
-    JSON.stringify(intro)
-  };</script>`;
+  /* Inject **before** the first module script (works with hashed filenames). */
+  const intro    = process.env.INTRO_TEXT ?? "";
+  const snippet  =
+    `<script>window.ENV_INTRO_TEXT = ${JSON.stringify(intro)};</script>`;
 
-  html = html.replace(
-    /<script\s+type="module"\b/i,      // first “type=module” script tag
-    `${snippet}\n$&`,
-  );
+  html = html.replace(/<script\s+type="module"\b/i, `${snippet}\n$&`);
 
-  res.send(html);
+  res.set("Content-Type", "text/html").send(html);
 });
 
-/* ── start ──────────────────────────────────────────────────── */
+/* ── start ────────────────────────────────────────────────── */
 app.listen(port, () => {
   console.log(`Web-Player listening on ${port}`);
-  console.log(`Serving media from: ${mediaRoot}`);
+  console.log(`Serving media from: ${MEDIA_ROOT}`);
 
-  /* initial Google-Drive pull + every 10 min */
-  syncDrive(mediaRoot);
-  setInterval(() => syncDrive(mediaRoot), 10 * 60 * 1000);
+  /* initial Google-Drive sync + every 10 min */
+  syncDrive(MEDIA_ROOT);
+  setInterval(() => syncDrive(MEDIA_ROOT), 10 * 60 * 1000);
 });
