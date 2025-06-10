@@ -31,7 +31,7 @@ const mediaRoot = process.env.MEDIA_ROOT
   ? path.resolve(process.env.MEDIA_ROOT)
   : path.join(__dirname, "../../media");
 
-app.use("/media",  express.static(mediaRoot));                 // MP3 files
+app.use("/media",  express.static(mediaRoot));                 // audio files
 app.use(express.static(path.join(__dirname, "../public")));    // React build
 
 /* ── serve index.html with INTRO_TEXT injection ─────────────── */
@@ -39,12 +39,15 @@ app.get("*", (_req, res) => {
   const indexPath = path.join(__dirname, "../public/index.html");
   let   html      = fs.readFileSync(indexPath, "utf8");
 
-  /* Inject *before* the first module script */
+  /* Inject *before* the FIRST module script so global is ready
+     even after Vite fingerprints the filename. */
   const intro   = process.env.INTRO_TEXT || "";
-  const snippet = `<script>window.ENV_INTRO_TEXT = ${JSON.stringify(intro)};</script>`;
+  const snippet = `<script>window.ENV_INTRO_TEXT = ${
+    JSON.stringify(intro)
+  };</script>`;
 
   html = html.replace(
-    /<script\s+type="module"\s+src="\.\/index\.jsx"><\/script>/i,
+    /<script\s+type="module"\b/i,      // first “type=module” script tag
     `${snippet}\n$&`,
   );
 
