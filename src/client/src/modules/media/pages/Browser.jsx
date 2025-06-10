@@ -1,8 +1,15 @@
+/* src/client/src/modules/media/pages/Browser.jsx
+ * ───────────────────────────────────────────────────────────
+ * Media browser + player –  keeps INTRO_TEXT banner
+ * and supports both .mp3 / .m4a tracks.
+ * ─────────────────────────────────────────────────────────── */
+
 import React, { useEffect, useState, useRef } from "react";
+import ReactMarkdown from "react-markdown";
 import Header from "../../../components/Header.jsx";
 import api from "../api.js";
 
-/* helpers ---------------------------------------------------------- */
+/* helpers -------------------------------------------------- */
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
 const crumbs = (rel = "") =>
   rel
@@ -14,24 +21,28 @@ const crumbs = (rel = "") =>
     }));
 
 export default function MediaBrowser() {
+  /* 🛈  intro text pulled from server-side injection or build-time env */
+  const introText =
+    window.ENV_INTRO_TEXT ?? import.meta.env.VITE_INTRO_TEXT ?? "";
+
   /* directory & playlist ------------------------------------------ */
   const [dir, setDir] = useState({ path: "", directories: [], files: [] });
   const [playlist, setList] = useState([]);
 
   /* player state --------------------------------------------------- */
-  const [playIdx, setIdx] = useState(-1);
+  const [playIdx, setIdx]   = useState(-1);
   const [userStart, setUsr] = useState(false);
-  const [mode, setMode] = useState("sequential"); // none|sequential|shuffle|repeatOne
+  const [mode, setMode]     = useState("sequential"); // none|sequential|shuffle|repeatOne
 
-  const audioRef = useRef(null);
-  const canvasRef = useRef(null);
-  const audioCtx = useRef(null);
-  const analyser = useRef(null);
-  const rafId = useRef(null);
+  const audioRef   = useRef(null);
+  const canvasRef  = useRef(null);
+  const audioCtx   = useRef(null);
+  const analyser   = useRef(null);
+  const rafId      = useRef(null);
 
   /* ui state */
   const [loading, setLoad] = useState(true);
-  const [err, setErr] = useState("");
+  const [err,     setErr]  = useState("");
 
   /* ── load directory --------------------------------------------- */
   const load = (p = "") => {
@@ -52,7 +63,7 @@ export default function MediaBrowser() {
   /* rebuild playlist on dir change -------------------------------- */
   useEffect(() => {
     const list = dir.files
-      .filter((f) => f.toLowerCase().endsWith(".mp3"))
+      .filter((f) => /\.(mp3|m4a)$/i.test(f))          // ← supports both
       .map((f) => (dir.path ? `${dir.path}/${f}` : f));
     setList(list);
     setIdx(list.length ? 0 : -1);
@@ -61,22 +72,19 @@ export default function MediaBrowser() {
 
   const playing = playIdx >= 0 ? playlist[playIdx] : null;
 
-  /* user clicks an MP3 button ------------------------------------- */
+  /* user clicks an audio button ----------------------------------- */
   function startTrack(idx) {
     setIdx(idx);
     setUsr(true);
-
-    /* play right away – still within user gesture */
+    /* play immediately – still inside user gesture */
     setTimeout(() => {
-      if (audioRef.current) audioRef.current.play().catch(() => {});
+      audioRef.current?.play().catch(() => {});
     }, 0);
   }
 
-  /* autoplay chain after first user click ------------------------- */
+  /* autoplay chain ----------------------------------------------- */
   useEffect(() => {
-    if (userStart && audioRef.current) {
-      audioRef.current.play().catch(() => {});
-    }
+    if (userStart) audioRef.current?.play().catch(() => {});
   }, [playIdx, userStart]);
 
   /* ── AudioContext / analyser ------------------------------------ */
@@ -90,28 +98,25 @@ export default function MediaBrowser() {
       src.connect(analyser.current).connect(audioCtx.current.destination);
       drawEq();
     }
-    if (audioCtx.current.state === "suspended") {
-      audioCtx.current.resume();
-    }
+    if (audioCtx.current.state === "suspended") audioCtx.current.resume();
   }
 
-  /* equaliser draw loop ------------------------------------------- */
   function drawEq() {
     const canvas = canvasRef.current;
     if (!canvas || !analyser.current) return;
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr  = window.devicePixelRatio || 1;
     const cssW = canvas.clientWidth;
     const cssH = canvas.clientHeight;
     if (canvas.width !== cssW * dpr || canvas.height !== cssH * dpr) {
-      canvas.width = cssW * dpr;
+      canvas.width  = cssW * dpr;
       canvas.height = cssH * dpr;
     }
 
-    const ctx = canvas.getContext("2d");
+    const ctx    = canvas.getContext("2d");
     ctx.scale(dpr, dpr);
     const buffer = new Uint8Array(analyser.current.frequencyBinCount);
-    const barW = cssW / buffer.length;
+    const barW   = cssW / buffer.length;
 
     const render = () => {
       analyser.current.getByteFrequencyData(buffer);
@@ -128,17 +133,14 @@ export default function MediaBrowser() {
   useEffect(() => () => cancelAnimationFrame(rafId.current), []);
 
   /* resume context when page/tab regains focus -------------------- */
-  function resumeCtx() {
-    if (audioCtx.current && audioCtx.current.state === "suspended") {
-      audioCtx.current.resume();
-    }
-  }
   useEffect(() => {
-    window.addEventListener("visibilitychange", resumeCtx);
-    window.addEventListener("focus", resumeCtx);
+    const resume = () =>
+      audioCtx.current?.state === "suspended" && audioCtx.current.resume();
+    window.addEventListener("visibilitychange", resume);
+    window.addEventListener("focus", resume);
     return () => {
-      window.removeEventListener("visibilitychange", resumeCtx);
-      window.removeEventListener("focus", resumeCtx);
+      window.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("focus", resume);
     };
   }, []);
 
@@ -149,7 +151,7 @@ export default function MediaBrowser() {
       audioRef.current.play();
       return;
     }
-    if (mode === "none" || playlist.length === 0) return;
+    if (!playlist.length || mode === "none") return;
 
     if (mode === "shuffle") {
       setIdx(Math.floor(Math.random() * playlist.length));
@@ -158,29 +160,28 @@ export default function MediaBrowser() {
     }
   }
 
+  /* ───────────────────────── render ────────────────────────────── */
   return (
     <>
       <Header />
 
+      {/* intro banner (hidden if no text) */}
+      {introText && (
+        <section className="card intro-text" style={{ margin: "1rem" }}>
+          <ReactMarkdown>{introText}</ReactMarkdown>
+        </section>
+      )}
+
       <main>
         {/* sticky player box */}
         <section className="card player-box">
-          <h3 style={{ marginTop: 0 }}>Now playing</h3>
-
           {playing ? (
             <>
-              <p
-                style={{
-                  wordBreak: "break-all",
-                  marginBottom: "0.6rem",
-                }}
-              >
+              <p style={{ wordBreak: "break-all", marginBottom: "0.6rem" }}>
                 {playing}
               </p>
 
-              <label
-                style={{ fontWeight: 600, marginRight: 6 }}
-              >
+              <label style={{ fontWeight: 600, marginRight: 6 }}>
                 Playback mode:
               </label>
               <select
@@ -199,28 +200,28 @@ export default function MediaBrowser() {
                 src={`/media/${enc(playing)}`}
                 controls
                 style={{ width: "100%" }}
-                onPlay={ensureAnalyser}   /* create / resume every play */
+                onPlay={ensureAnalyser}
                 onEnded={onEnded}
               />
 
-              {/* equaliser */}
               <canvas ref={canvasRef} className="eq-canvas" />
             </>
           ) : (
             <p>
-              <em>No MP3 files in this folder</em>
+              <em>No audio files in this folder</em>
             </p>
           )}
         </section>
 
-        {/* library browser */}
+        {/* browser */}
         <section className="card" style={{ maxWidth: 900 }}>
           <h2 style={{ marginTop: 0 }}>Media library</h2>
 
           {/* breadcrumbs */}
           <div style={{ marginBottom: "1rem" }}>
             <strong>Path:&nbsp;</strong>
-            <button className="crumb-btn" onClick={() => load("")}>/
+            <button className="crumb-btn" onClick={() => load("")}>
+              /
             </button>
             {crumbs(dir.path).map((c) => (
               <button
@@ -234,24 +235,19 @@ export default function MediaBrowser() {
           </div>
 
           {loading && <p>Loading…</p>}
+          {err && <p style={{ color: "red" }}>{err}</p>}
 
-          {!loading && (
+          {!loading && !err && (
             <>
               {/* folders */}
               {dir.directories.length > 0 && (
                 <>
                   <h3>Folders</h3>
                   <div className="scroll-list">
-                    <ul
-                      style={{
-                        listStyle: "none",
-                        paddingLeft: 0,
-                        margin: 0,
-                      }}
-                    >
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                       {dir.directories.map((d) => (
                         <li key={d}>
-                          📁{' '}
+                          📁{" "}
                           <button
                             className="crumb-btn"
                             onClick={() =>
@@ -267,32 +263,23 @@ export default function MediaBrowser() {
                 </>
               )}
 
-              {/* mp3 list */}
+              {/* audio list */}
               {playlist.length > 0 && (
                 <>
-                  <h3>MP3 files</h3>
+                  <h3>Audio files</h3>
                   <div className="scroll-list">
-                    <ul
-                      style={{
-                        listStyle: "none",
-                        paddingLeft: 0,
-                        margin: 0,
-                      }}
-                    >
-                      {playlist.map((rel, i) => {
-                        const name = rel.split("/").pop();
-                        return (
-                          <li key={rel}>
-                            🎵{' '}
-                            <button
-                              className="crumb-btn"
-                              onClick={() => startTrack(i)}
-                            >
-                              {name}
-                            </button>
-                          </li>
-                        );
-                      })}
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                      {playlist.map((rel, i) => (
+                        <li key={rel}>
+                          🎵{" "}
+                          <button
+                            className="crumb-btn"
+                            onClick={() => startTrack(i)}
+                          >
+                            {rel.split("/").pop()}
+                          </button>
+                        </li>
+                      ))}
                     </ul>
                   </div>
                 </>
