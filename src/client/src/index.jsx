@@ -12,6 +12,13 @@ import AppRoutes      from "./routes.jsx";
 const STYLE = window.ENV_STYLE ?? import.meta.env.VITE_STYLE ?? "boy";   // blue = default
 const TONE  = window.ENV_TONE  ?? import.meta.env.VITE_TONE  ?? "light"; // light = default
 
+/* ──────────────────────────────
+ * Dynamic page title
+ *   – use the current domain
+ * ────────────────────────────── */
+const DOMAIN = (window.location.hostname || "Web-Player").replace(/^www\./, "");
+document.title = DOMAIN;
+
 document.documentElement.setAttribute("data-theme", STYLE);
 document.documentElement.setAttribute("data-mode",  TONE);
 

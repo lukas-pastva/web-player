@@ -323,7 +323,6 @@ export default function MediaBrowser() {
 
               {playlist.length > 0 && (
                 <>
-                  <h3>Media files</h3>
                   <div className="scroll-list">
                     <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                       {playlist.map((rel, i) => (
