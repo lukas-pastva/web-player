@@ -1,7 +1,7 @@
 /* src/client/src/modules/media/pages/Browser.jsx
  * ───────────────────────────────────────────────────────────
  * Media browser + player
- *   • supports audio (.mp3, .m4a) **and video (.mp4, .webm, .ogg, .mkv)**
+ *   • supports audio (.mp3, .m4a) and video (.mp4, .webm, .ogg, .mkv, **.mov**)
  *   • Media-Session keeps audio alive on lock-screen
  *   • Equaliser draws while an **audio** track plays and page is visible
  *   • INTRO_TEXT banner injected by the server
@@ -25,7 +25,7 @@ const crumbs = (rel = "") =>
 
 /* recognised extensions */
 const AUDIO_RE = /\.(mp3|m4a)$/i;
-const VIDEO_RE = /\.(mp4|webm|og[gv]|mkv)$/i;
+const VIDEO_RE = /\.(mp4|webm|og[gv]|mkv|mov)$/i;
 
 export default function MediaBrowser() {
   /* 🛈 intro text (server-side injection or build-time env) */
