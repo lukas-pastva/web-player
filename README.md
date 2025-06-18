@@ -1,16 +1,15 @@
 # web-player
-A lightweight **self-hosted MP3 library + player**.
+A lightweight **self-hosted media library + player** for your music **and videos**.
 
-Point the container at any folder full of music and it will:
+Point the container at any folder full of media files (MP3, M4A, MP4, WebM…) and it will:
 
-* walk the directory tree,
-* expose it read-only through `/api/media`,
-* serve the raw files under `/media/**`,
-* let you browse and play tracks in the browser.
+* walk the directory tree,  
+* expose it read-only through `/api/media`,  
+* serve the raw files under `/media/**`,  
+* let you browse and play tracks **and clips** in the browser.
 
 ```bash
 docker run -p 8080:8080 \
-  -e MEDIA_ROOT=/path/to/your/mp3s \
+  -e MEDIA_ROOT=/path/to/your/media \
   lukaspastva/web-player:latest
 ```
-Then open http://localhost:8080 and enjoy 🎵

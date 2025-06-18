@@ -1,9 +1,9 @@
 /* src/client/src/modules/media/pages/Browser.jsx
  * ───────────────────────────────────────────────────────────
  * Media browser + player
- *   • supports .mp3 & .m4a
+ *   • supports audio (.mp3, .m4a) **and video (.mp4, .webm, .ogg, .mkv)**
  *   • Media-Session keeps audio alive on lock-screen
- *   • Equaliser draws while page is visible, pauses when hidden
+ *   • Equaliser draws while an **audio** track plays and page is visible
  *   • INTRO_TEXT banner injected by the server
  * ─────────────────────────────────────────────────────────── */
 
@@ -23,6 +23,10 @@ const crumbs = (rel = "") =>
       path: rel.split("/").slice(0, i + 1).join("/"),
     }));
 
+/* recognised extensions */
+const AUDIO_RE = /\.(mp3|m4a)$/i;
+const VIDEO_RE = /\.(mp4|webm|og[gv]|mkv)$/i;
+
 export default function MediaBrowser() {
   /* 🛈 intro text (server-side injection or build-time env) */
   const introText =
@@ -38,8 +42,12 @@ export default function MediaBrowser() {
   const [mode,     setMode] = useState("sequential"); // none|sequential|shuffle|repeatOne
   const playing = playIdx >= 0 ? playlist[playIdx] : null;
 
+  const isAudio = playing && AUDIO_RE.test(playing);
+  const isVideo = playing && VIDEO_RE.test(playing);
+
   /* refs ---------------------------------------------------- */
-  const audioRef  = useRef(null);
+  const audioRef = useRef(null);
+  const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const audioCtx  = useRef(null);
   const analyser  = useRef(null);
@@ -69,7 +77,7 @@ export default function MediaBrowser() {
   /* rebuild playlist whenever dir changes */
   useEffect(() => {
     const list = dir.files
-      .filter((f) => /\.(mp3|m4a)$/i.test(f))
+      .filter((f) => AUDIO_RE.test(f) || VIDEO_RE.test(f))
       .map((f) => (dir.path ? `${dir.path}/${f}` : f));
 
     set(list);
@@ -79,20 +87,33 @@ export default function MediaBrowser() {
 
   /* user clicks a track */
   function startTrack(i) {
+    /* stop any current media first */
+    audioRef.current?.pause();
+    videoRef.current?.pause();
+
     setIdx(i);
     setUI(true);
+
     /* play immediately (still inside gesture) */
-    setTimeout(() => audioRef.current?.play().catch(() => {}), 0);
+    setTimeout(() => {
+      if (AUDIO_RE.test(playlist[i])) {
+        audioRef.current?.play().catch(() => {});
+      } else {
+        videoRef.current?.play().catch(() => {});
+      }
+    }, 0);
   }
 
-  /* continue autoplay */
+  /* continue autoplay after track switches */
   useEffect(() => {
-    if (userInit) audioRef.current?.play().catch(() => {});
-  }, [playIdx, userInit]);
+    if (!userInit || !playing) return;
+    const ref = isAudio ? audioRef.current : videoRef.current;
+    ref?.play().catch(() => {});
+  }, [playIdx, userInit, playing]);
 
-  /* ───────────────────── equaliser infra */
+  /* ───────────────────── equaliser infra (audio only) */
   function startEq() {
-    if (drawing.current || !analyser.current) return;
+    if (!isAudio || drawing.current || !analyser.current) return;
     drawing.current = true;
     drawEq();
   }
@@ -103,6 +124,7 @@ export default function MediaBrowser() {
   }
 
   function ensureAnalyser() {
+    if (!isAudio) return; // video ⇒ no analyser
     if (!audioCtx.current) {
       audioCtx.current =
         new (window.AudioContext || window.webkitAudioContext)();
@@ -169,8 +191,9 @@ export default function MediaBrowser() {
   /* handle track end */
   function onEnded() {
     if (mode === "repeatOne") {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play();
+      const ref = isAudio ? audioRef.current : videoRef.current;
+      ref.currentTime = 0;
+      ref.play();
       return;
     }
     if (!playlist.length || mode === "none") return;
@@ -216,20 +239,33 @@ export default function MediaBrowser() {
                 <option value="repeatOne">Repeat one</option>
               </select>
 
-              <audio
-                ref={audioRef}
-                src={`/media/${enc(playing)}`}
-                controls
-                style={{ width: "100%" }}
-                onPlay={ensureAnalyser}
-                onEnded={onEnded}
-              />
+              {isAudio && (
+                <audio
+                  ref={audioRef}
+                  src={`/media/${enc(playing)}`}
+                  controls
+                  style={{ width: "100%" }}
+                  onPlay={ensureAnalyser}
+                  onEnded={onEnded}
+                />
+              )}
 
-              <canvas ref={canvasRef} className="eq-canvas" />
+              {isVideo && (
+                <video
+                  ref={videoRef}
+                  src={`/media/${enc(playing)}`}
+                  controls
+                  style={{ width: "100%", maxHeight: "60vh" }}
+                  onEnded={onEnded}
+                />
+              )}
+
+              {/* equaliser only for audio */}
+              {isAudio && <canvas ref={canvasRef} className="eq-canvas" />}
             </>
           ) : (
             <p>
-              <em>No audio files in this folder</em>
+              <em>No playable media files in this folder</em>
             </p>
           )}
         </section>
@@ -287,12 +323,12 @@ export default function MediaBrowser() {
 
               {playlist.length > 0 && (
                 <>
-                  <h3>Audio files</h3>
+                  <h3>Media files</h3>
                   <div className="scroll-list">
                     <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                       {playlist.map((rel, i) => (
                         <li key={rel}>
-                          🎵{" "}
+                          {AUDIO_RE.test(rel) ? "🎵" : "🎬"}{" "}
                           <button
                             className="crumb-btn"
                             onClick={() => startTrack(i)}
