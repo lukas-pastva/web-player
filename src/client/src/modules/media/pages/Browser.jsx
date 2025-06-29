@@ -52,6 +52,7 @@ export default function MediaBrowser() {
 
   const [loading, setLoading] = useState(true);
   const [err, setErr]         = useState("");
+  const [lightbox, setLightbox] = useState(false);
 
   // Load directory from API
   const load = (p = "") => {
@@ -242,13 +243,33 @@ export default function MediaBrowser() {
               {/* GIF fullscreen */}
               {isGif && (
                 <img
-                  ref={gifRef}
                   src={`/media/${enc(playing)}`}
                   alt={playing}
-                  style={{ maxWidth: "100%", maxHeight: "60vh", width: "auto", height: "auto", cursor: "pointer" }}
-                  onClick={handleGifClick}
+                  style={{ cursor: "pointer", maxWidth: "100%", maxHeight: "60vh", width: "auto", height: "auto" }}
+                  onClick={() => setLightbox(true)}
                 />
               )}
+
+              {lightbox && (
+                <div
+                  onClick={() => setLightbox(false)}
+                  style={{
+                    position: "fixed",
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    background: "rgba(0,0,0,0.9)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    zIndex: 1000,
+                  }}
+                >
+                  <img
+                    src={`/media/${enc(playing)}`}
+                    style={{ maxWidth: "100%", maxHeight: "100%" }}
+                  />
+                </div>
+              )}
+
 
               {/* Equaliser */}
               {isAudio && <canvas ref={canvasRef} className="eq-canvas" />}               
