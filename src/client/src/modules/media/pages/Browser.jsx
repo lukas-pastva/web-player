@@ -1,8 +1,8 @@
 /* src/client/src/modules/media/pages/Browser.jsx
  * ───────────────────────────────────────────
  * Media browser + player
- *   • supports audio (.mp3, .m4a) and video (.mp4, .webm, .ogg, .mkv, .mov)
- *   • now also supports GIF animations (.gif)
+ *   • supports audio (.mp3, .m4a), video (.mp4, .webm, .ogg, .mkv, .mov)
+ *   • supports GIF animations (.gif) via <img>
  *   • Media-Session keeps audio alive on lock-screen
  *   • Equaliser draws while an audio track plays and page is visible
  *   • INTRO_TEXT banner injected by the server
@@ -26,19 +26,16 @@ const crumbs = (rel = "") =>
 
 /* recognised extensions */
 const AUDIO_RE = /\.(mp3|m4a)$/i;
-// now also support GIF animations as “video” for playback
-const VIDEO_RE = /\.(mp4|webm|og[gv]|mkv|mov|gif)$/i;
+const VIDEO_RE = /\.(mp4|webm|og[gv]|mkv|mov)$/i;
+const GIF_RE   = /\.gif$/i;
 
 export default function MediaBrowser() {
-  /* 🛈 intro text (server-side injection or build-time env) */
   const introText =
     window.ENV_INTRO_TEXT ?? import.meta.env.VITE_INTRO_TEXT ?? "";
 
-  /* directory & playlist ----------------------------------- */
   const [dir, setDir]   = useState({ path: "", directories: [], files: [] });
   const [playlist, set] = useState([]);
 
-  /* player state ------------------------------------------- */
   const [playIdx,  setIdx]  = useState(-1);
   const [userInit, setUI ]  = useState(false);
   const [mode,     setMode] = useState("sequential"); // none|sequential|shuffle|repeatOne
@@ -46,21 +43,19 @@ export default function MediaBrowser() {
 
   const isAudio = playing && AUDIO_RE.test(playing);
   const isVideo = playing && VIDEO_RE.test(playing);
+  const isGif   = playing && GIF_RE.test(playing);
 
-  /* refs ---------------------------------------------------- */
   const audioRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const audioCtx  = useRef(null);
   const analyser  = useRef(null);
   const rafId     = useRef(null);
-  const drawing   = useRef(false); // loop running?
+  const drawing   = useRef(false);
 
-  /* UI flags */
   const [loading, setLoading] = useState(true);
   const [err,     setErr]     = useState("");
 
-  /* ───────────────────── load directory */
   const load = (p = "") => {
     setLoading(true);
     api
@@ -76,10 +71,9 @@ export default function MediaBrowser() {
   };
   useEffect(() => load(""), []);
 
-  /* rebuild playlist whenever dir changes */
   useEffect(() => {
     const list = dir.files
-      .filter((f) => AUDIO_RE.test(f) || VIDEO_RE.test(f))
+      .filter((f) => AUDIO_RE.test(f) || VIDEO_RE.test(f) || GIF_RE.test(f))
       .map((f) => (dir.path ? `${dir.path}/${f}` : f));
 
     set(list);
@@ -87,33 +81,31 @@ export default function MediaBrowser() {
     setUI(false);
   }, [dir]);
 
-  /* user clicks a track */
   function startTrack(i) {
-    /* stop any current media first */
     audioRef.current?.pause();
     videoRef.current?.pause();
 
     setIdx(i);
     setUI(true);
 
-    /* play immediately (still inside gesture) */
     setTimeout(() => {
       if (AUDIO_RE.test(playlist[i])) {
         audioRef.current?.play().catch(() => {});
-      } else {
+      } else if (VIDEO_RE.test(playlist[i])) {
         videoRef.current?.play().catch(() => {});
       }
+      // no play() needed for <img>
     }, 0);
   }
 
-  /* continue autoplay after track switches */
   useEffect(() => {
     if (!userInit || !playing) return;
     const ref = isAudio ? audioRef.current : videoRef.current;
-    ref?.play().catch(() => {});
+    if (isAudio || isVideo) {
+      ref?.play().catch(() => {});
+    }
   }, [playIdx, userInit, playing]);
 
-  /* ───────────────────── equaliser infra (audio only) */
   function startEq() {
     if (!isAudio || drawing.current || !analyser.current) return;
     drawing.current = true;
@@ -126,7 +118,7 @@ export default function MediaBrowser() {
   }
 
   function ensureAnalyser() {
-    if (!isAudio) return; // video/GIF ⇒ no analyser
+    if (!isAudio) return;
     if (!audioCtx.current) {
       audioCtx.current =
         new (window.AudioContext || window.webkitAudioContext)();
@@ -169,7 +161,6 @@ export default function MediaBrowser() {
     render();
   }
 
-  /* pause / resume on visibility --------------------------------- */
   useEffect(() => {
     const handleVis = () => {
       if (document.visibilityState === "visible") {
@@ -187,15 +178,17 @@ export default function MediaBrowser() {
     };
   }, []);
 
-  /* cleanup on unmount */
   useEffect(() => () => stopEq(), []);
 
-  /* handle track end */
   function onEnded() {
     if (mode === "repeatOne") {
-      const ref = isAudio ? audioRef.current : videoRef.current;
-      ref.currentTime = 0;
-      ref.play();
+      if (isAudio) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play();
+      } else if (isVideo) {
+        videoRef.current.currentTime = 0;
+        videoRef.current.play();
+      }
       return;
     }
     if (!playlist.length || mode === "none") return;
@@ -207,7 +200,6 @@ export default function MediaBrowser() {
     }
   }
 
-  /* ───────────────────── render */
   return (
     <>
       <Header />
@@ -219,7 +211,6 @@ export default function MediaBrowser() {
       )}
 
       <main>
-        {/* sticky player */}
         <section className="card player-box">
           {playing ? (
             <>
@@ -262,7 +253,14 @@ export default function MediaBrowser() {
                 />
               )}
 
-              {/* equaliser only for audio */}
+              {isGif && (
+                <img
+                  src={`/media/${enc(playing)}`}
+                  alt={playing}
+                  style={{ width: "100%", maxHeight: "60vh" }}
+                />
+              )}
+
               {isAudio && <canvas ref={canvasRef} className="eq-canvas" />}
             </>
           ) : (
@@ -272,11 +270,9 @@ export default function MediaBrowser() {
           )}
         </section>
 
-        {/* browser */}
         <section className="card" style={{ maxWidth: 900 }}>
           <h2 style={{ marginTop: 0 }}>Media library</h2>
 
-          {/* ─── Breadcrumbs — hidden when at root and no sub-folders ─── */}
           {(dir.path || dir.directories.length > 0) && (
             <div style={{ marginBottom: "1rem" }}>
               <strong>Path:&nbsp;</strong>
@@ -324,23 +320,25 @@ export default function MediaBrowser() {
               )}
 
               {playlist.length > 0 && (
-                <>
-                  <div className="scroll-list">
-                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                      {playlist.map((rel, i) => (
-                        <li key={rel}>
-                          {AUDIO_RE.test(rel) ? "🎵" : "🎬"}{" "}
-                          <button
-                            className="crumb-btn"
-                            onClick={() => startTrack(i)}
-                          >
-                            {rel.split("/").pop()}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </>
+                <div className="scroll-list">
+                  <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                    {playlist.map((rel, i) => (
+                      <li key={rel}>
+                        {AUDIO_RE.test(rel)
+                          ? "🎵"
+                          : GIF_RE.test(rel)
+                          ? "🖼️"
+                          : "🎬"}{" "}
+                        <button
+                          className="crumb-btn"
+                          onClick={() => startTrack(i)}
+                        >
+                          {rel.split("/").pop()}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
 
               {dir.directories.length === 0 && playlist.length === 0 && (
