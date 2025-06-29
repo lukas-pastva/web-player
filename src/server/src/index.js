@@ -17,8 +17,9 @@ const port = process.env.PORT || 8080;
 const __dirname  = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '../public');
 
-// New: directory for mounted config files
+// Directory for mounted config files (e.g. via K8s ConfigMap)
 const CONFIG_DIR = process.env.CONFIG_DIR || '/etc/web-player/config';
+
 const MEDIA_ROOT = process.env.MEDIA_ROOT
   ? path.resolve(process.env.MEDIA_ROOT)
   : path.join(__dirname, '../../media');
@@ -26,12 +27,13 @@ const MEDIA_ROOT = process.env.MEDIA_ROOT
 app.use(cors());
 app.use(express.json());
 
+// API – folder listings
 app.use('/api/media', mediaRoutes);
 
 // Serve built client assets
 app.use(express.static(PUBLIC_DIR));
 
-// Serve your mounted config volume under `/config`
+// Serve mounted config volume under `/config`
 app.use('/config', express.static(CONFIG_DIR));
 
 /* ── media streaming with HTTP Range support ──────────────── */
@@ -40,7 +42,7 @@ app.get('/media/*', (req, res) => {
     const relPath  = decodeURIComponent(req.params[0] ?? '');
     const filePath = path.join(MEDIA_ROOT, relPath);
 
-    /* reject path-traversal attempts */
+    // reject path-traversal attempts
     if (!filePath.startsWith(MEDIA_ROOT)) {
       return res.status(400).send('Invalid path');
     }
@@ -52,7 +54,7 @@ app.get('/media/*', (req, res) => {
     const mimeType = mime.lookup(filePath) || 'application/octet-stream';
     const range    = req.headers.range;
 
-    /* no Range header → send whole file */
+    // no Range header → send whole file
     if (!range) {
       res.writeHead(200, {
         'Content-Type'  : mimeType,
@@ -63,7 +65,7 @@ app.get('/media/*', (req, res) => {
       return;
     }
 
-    /* handle partial request */
+    // handle partial request
     const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
     const start = parseInt(startStr, 10);
     const end   = endStr ? parseInt(endStr, 10) : fileSize - 1;
@@ -94,7 +96,7 @@ app.get('*', (_req, res) => {
   const indexPath = path.join(PUBLIC_DIR, 'index.html');
   let   html      = fs.readFileSync(indexPath, 'utf8');
 
-  /* Inject banner text immediately after <head> */
+  // Inject banner text immediately after <head>
   const intro   = process.env.INTRO_TEXT ?? '';
   const snippet = `<script>window.ENV_INTRO_TEXT = ${JSON.stringify(intro)};</script>`;
   html = html.replace(/<head([^>]*)>/i, `<head$1>\n  ${snippet}`);
@@ -102,7 +104,7 @@ app.get('*', (_req, res) => {
   res.type('html').send(html);
 });
 
-/* ── start ──────────────
+/* ── start ────────────── */
 app.listen(port, () => {
   console.log(`Web-Player listening on ${port}`);
   console.log(`Serving media from: ${MEDIA_ROOT}`);
