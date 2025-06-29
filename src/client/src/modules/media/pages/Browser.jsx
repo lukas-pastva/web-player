@@ -43,6 +43,7 @@ export default function MediaBrowser() {
   // Refs for media elements & analyser
   const audioRef  = useRef(null);
   const videoRef  = useRef(null);
+  const gifRef    = useRef(null);
   const canvasRef = useRef(null);
   const audioCtx  = useRef(null);
   const analyser  = useRef(null);
@@ -93,13 +94,20 @@ export default function MediaBrowser() {
     }, 0);
   }
 
-
   useEffect(() => {
     if (!userInit || !playing) return;
     const ref = isAudio ? audioRef.current : videoRef.current;
     if (isAudio || isVideo) ref?.play().catch(() => {});
   }, [playIdx, userInit, playing]);
 
+  // Fullscreen handler for GIF
+  function handleGifClick() {
+    if (gifRef.current && document.fullscreenEnabled) {
+      gifRef.current.requestFullscreen().catch(() => {});
+    }
+  }
+
+  // Equaliser & analyser logic
   function startEq() {
     if (!isAudio || drawing.current || !analyser.current) return;
     drawing.current = true;
@@ -168,7 +176,7 @@ export default function MediaBrowser() {
     };
   }, []);
   useEffect(() => () => stopEq(), []);
-
+  // Handle track end
   function onEnded() {
     if (mode === "repeatOne") {
       if (isAudio) {
@@ -202,16 +210,12 @@ export default function MediaBrowser() {
         <section className="card player-box">
           {playing ? (
             <>
-              <p style={{ wordBreak: "break-all", marginBottom: "0.6rem" }}>
-                {playing}
-              </p>
+              <p style={{ wordBreak: "break-all", marginBottom: "0.6rem" }}>{playing}</p>
 
-              {/* Playback mode shown only if more than one file */}
+              {/* Playback mode */}
               {playlist.length > 1 && (
                 <>
-                  <label style={{ fontWeight: 600, marginRight: 6 }}>
-                    Playback mode:
-                  </label>
+                  <label style={{ fontWeight: 600, marginRight: 6 }}>Playback mode:</label>
                   <select
                     value={mode}
                     onChange={(e) => setMode(e.target.value)}
@@ -225,52 +229,36 @@ export default function MediaBrowser() {
                 </>
               )}
 
-              {/* Audio element */}
+              {/* Audio */}
               {isAudio && (
-                <audio
-                  ref={audioRef}
-                  src={`/media/${enc(playing)}`}
-                  controls
-                  style={{ width: "100%" }}
-                  onPlay={ensureAnalyser}
-                  onEnded={onEnded}
-                />
+                <audio ref={audioRef} src={`/media/${enc(playing)}`} controls style={{ width: "100%" }} onPlay={ensureAnalyser} onEnded={onEnded} />
               )}
 
-              {/* Video element */}
+              {/* Video */}
               {isVideo && (
-                <video
-                  ref={videoRef}
-                  src={`/media/${enc(playing)}`}
-                  controls
-                  style={{ maxWidth: "100%", maxHeight: "60vh" }}
-                  onEnded={onEnded}
-                />
+                <video ref={videoRef} src={`/media/${enc(playing)}`} controls style={{ maxWidth: "100%", maxHeight: "60vh" }} onEnded={onEnded} />
               )}
 
-              {/* GIF as img with preserved aspect ratio */}
+              {/* GIF fullscreen */}
               {isGif && (
                 <img
+                  ref={gifRef}
                   src={`/media/${enc(playing)}`}
                   alt={playing}
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: "60vh",
-                    width: "auto",
-                    height: "auto",
-                  }}
+                  style={{ maxWidth: "100%", maxHeight: "60vh", width: "auto", height: "auto", cursor: "pointer" }}
+                  onClick={handleGifClick}
                 />
               )}
 
-              {/* Equaliser canvas for audio */}
-              {isAudio && <canvas ref={canvasRef} className="eq-canvas" />}
+              {/* Equaliser */}
+              {isAudio && <canvas ref={canvasRef} className="eq-canvas" />}               
             </>
           ) : (
             <p><em>No playable media files in this folder</em></p>
           )}
         </section>
 
-        {/* Library: only if more than one file */}
+        {/* Library */}
         {playlist.length > 1 && (
           <section className="card" style={{ maxWidth: 900 }}>
             <h2 style={{ marginTop: 0 }}>Media library</h2>
