@@ -3,9 +3,10 @@
  * Express server
  *   • /api/media   → JSON folder listings
  *   • /media/**    → streamed audio/video files with Range support
- *   • /assets/**   → Vite-generated JS/CSS/img
+ *   • (now) serve all built assets under public/ as static
  *   • *            → index.html with INTRO_TEXT injected
  * ──────────────────────────────────────────────────────────── */
+
 import express from 'express';
 import cors    from 'cors';
 import path    from 'path';
@@ -36,8 +37,8 @@ app.use(express.json());
 /* API – folder listings */
 app.use('/api/media', mediaRoutes);
 
-/* Static assets (never index.html here) */
-app.use('/assets', express.static(path.join(PUBLIC_DIR, 'assets')));
+/* Static assets – serve the entire public/ directory */
+app.use(express.static(PUBLIC_DIR));
 
 /* ── media streaming with HTTP Range support ──────────────── */
 app.get('/media/*', (req, res) => {
