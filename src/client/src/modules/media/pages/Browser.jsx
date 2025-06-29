@@ -1,11 +1,12 @@
 /* src/client/src/modules/media/pages/Browser.jsx
- * ───────────────────────────────────────────────────────────
+ * ───────────────────────────────────────────
  * Media browser + player
- *   • supports audio (.mp3, .m4a) and video (.mp4, .webm, .ogg, .mkv, **.mov**)
+ *   • supports audio (.mp3, .m4a) and video (.mp4, .webm, .ogg, .mkv, .mov)
+ *   • now also supports GIF animations (.gif)
  *   • Media-Session keeps audio alive on lock-screen
- *   • Equaliser draws while an **audio** track plays and page is visible
+ *   • Equaliser draws while an audio track plays and page is visible
  *   • INTRO_TEXT banner injected by the server
- * ─────────────────────────────────────────────────────────── */
+ * ─────────────────────────────────────────── */
 
 import React, { useEffect, useState, useRef } from "react";
 import ReactMarkdown from "react-markdown";
@@ -25,7 +26,8 @@ const crumbs = (rel = "") =>
 
 /* recognised extensions */
 const AUDIO_RE = /\.(mp3|m4a)$/i;
-const VIDEO_RE = /\.(mp4|webm|og[gv]|mkv|mov)$/i;
+// now also support GIF animations as “video” for playback
+const VIDEO_RE = /\.(mp4|webm|og[gv]|mkv|mov|gif)$/i;
 
 export default function MediaBrowser() {
   /* 🛈 intro text (server-side injection or build-time env) */
@@ -124,7 +126,7 @@ export default function MediaBrowser() {
   }
 
   function ensureAnalyser() {
-    if (!isAudio) return; // video ⇒ no analyser
+    if (!isAudio) return; // video/GIF ⇒ no analyser
     if (!audioCtx.current) {
       audioCtx.current =
         new (window.AudioContext || window.webkitAudioContext)();

@@ -1,12 +1,12 @@
 # web-player
-A lightweight **self-hosted media library + player** for your music **and videos**.
+A lightweight **self-hosted media library + player** for your music, videos **and GIF animations**.
 
-Point the container at any folder full of media files (MP3, M4A, MP4, WebM, **MOV**, …) and it will:
+Point the container at any folder full of media files (MP3, M4A, MP4, WebM, **MOV**, GIF, …) and it will:
 
-* walk the directory tree,  
-* expose it read-only through `/api/media`,  
-* serve the raw files under `/media/**`,  
-* let you browse and play tracks **and clips** in the browser.
+* walk the directory tree  
+* expose it read-only through `/api/media`  
+* serve the raw files under `/media/**`  
+* let you browse and play audio tracks, video clips **and GIF animations** in the browser.
 
 ```bash
 docker run -p 8080:8080 \
