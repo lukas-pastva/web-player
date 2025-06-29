@@ -1,3 +1,12 @@
+/* src/client/src/modules/media/pages/Browser.jsx
+ * ───────────────────────────────────────────
+ * Media browser + player
+ *   • supports audio (.mp3, .m4a), video (.mp4, .webm, .ogg, .mkv, .mov)
+ *   • supports GIF animations (.gif) via <img> with preserved aspect ratio
+ *   • equaliser draws while audio plays
+ *   • intro banner fetched from server-mounted ConfigMap
+ * ─────────────────────────────────────────── */
+
 import React, { useEffect, useState, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import Header from "../../../components/Header.jsx";
@@ -15,10 +24,8 @@ const VIDEO_RE = /\.(mp4|webm|og[gv]|mkv|mov)$/i;
 const GIF_RE   = /\.gif$/i;
 
 export default function MediaBrowser() {
-  // state for intro markdown
   const [introText, setIntroText] = useState("");
 
-  // load intro.md from your mounted ConfigMap via server
   useEffect(() => {
     fetch("/config/intro.md")
       .then((r) => (r.ok ? r.text() : ""))
@@ -28,9 +35,9 @@ export default function MediaBrowser() {
 
   const [dir, setDir]   = useState({ path: "", directories: [], files: [] });
   const [playlist, set] = useState([]);
-  const [playIdx, setIdx] = useState(-1);
-  const [userInit, setUI ] = useState(false);
-  const [mode, setMode]    = useState("sequential");
+  const [playIdx, setIdx]   = useState(-1);
+  const [userInit, setUI ]  = useState(false);
+  const [mode, setMode]     = useState("sequential");
   const playing = playIdx >= 0 ? playlist[playIdx] : null;
 
   const isAudio = playing && AUDIO_RE.test(playing);
@@ -160,7 +167,6 @@ export default function MediaBrowser() {
   }, []);
   useEffect(() => () => stopEq(), []);
 
-
   function onEnded() {
     if (mode === "repeatOne") {
       if (isAudio) {
@@ -181,7 +187,6 @@ export default function MediaBrowser() {
     }
   }
 
-
   return (
     <>
       <Header />
@@ -191,7 +196,6 @@ export default function MediaBrowser() {
           <ReactMarkdown>{introText}</ReactMarkdown>
         </section>
       )}
-
 
       <main>
         <section className="card player-box">
@@ -231,7 +235,7 @@ export default function MediaBrowser() {
                   ref={videoRef}
                   src={`/media/${enc(playing)}`}
                   controls
-                  style={{ width: "100%", maxHeight: "60vh" }}
+                  style={{ maxWidth: "100%", maxHeight: "60vh" }}
                   onEnded={onEnded}
                 />
               )}
@@ -240,16 +244,19 @@ export default function MediaBrowser() {
                 <img
                   src={`/media/${enc(playing)}`}
                   alt={playing}
-                  style={{ width: "100%", maxHeight: "60vh" }}
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "60vh",
+                    width: "auto",
+                    height: "auto",
+                  }}
                 />
               )}
 
               {isAudio && <canvas ref={canvasRef} className="eq-canvas" />}
             </>
           ) : (
-            <p>
-              <em>No playable media files in this folder</em>
-            </p>
+            <p><em>No playable media files in this folder</em></p>
           )}
         </section>
 
