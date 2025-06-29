@@ -19,6 +19,8 @@ export default function MediaBrowser() {
   const [introText, setIntroText] = useState("");
   // Playback mode state
   const [mode, setMode] = useState("sequential");
+  // User interaction flag to enable autoplay
+  const [userInit, setUserInit] = useState(false);
 
   useEffect(() => {
     fetch("/config/intro.md")
@@ -30,7 +32,7 @@ export default function MediaBrowser() {
   // Directory listing state
   const [dir, setDir] = useState({ path: "", directories: [], files: [] });
   // Playlist (playable files)
-  const [playlist, set] = useState([]);
+  const [playlist, setPlaylist] = useState([]);
   const [playIdx, setIdx] = useState(-1);
   const playing = playIdx >= 0 ? playlist[playIdx] : null;
 
@@ -64,15 +66,24 @@ export default function MediaBrowser() {
     const list = dir.files
       .filter((f) => AUDIO_RE.test(f) || VIDEO_RE.test(f) || GIF_RE.test(f))
       .map((f) => (dir.path ? `${dir.path}/${f}` : f));
-    set(list);
+    setPlaylist(list);
     setIdx(list.length ? 0 : -1);
+    setUserInit(false);
   }, [dir]);
 
-  // Start a track
+  // Handle autoplay after track change
+  useEffect(() => {
+    if (!userInit || !playing) return;
+    const ref = isAudio ? audioRef.current : videoRef.current;
+    ref?.play().catch(() => {});
+  }, [playIdx, userInit, playing]);
+
+  // Start a track on user click
   function startTrack(i) {
     audioRef.current?.pause();
     videoRef.current?.pause();
     setIdx(i);
+    setUserInit(true);
     setTimeout(() => {
       if (AUDIO_RE.test(playlist[i])) {
         audioRef.current?.play().catch(() => {});
@@ -191,7 +202,6 @@ export default function MediaBrowser() {
         <section className="card player-box">
           {playing ? (
             <>
-              {/* File name */}
               <p style={{ wordBreak: "break-all", marginBottom: "0.6rem" }}>
                 {playing}
               </p>
