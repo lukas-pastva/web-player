@@ -1,52 +1,44 @@
-/* src/client/src/modules/media/pages/Browser.jsx
- * ───────────────────────────────────────────
- * Media browser + player
- *   • supports audio (.mp3, .m4a), video (.mp4, .webm, .ogg, .mkv, .mov)
- *   • supports GIF animations (.gif) via <img>
- *   • Media-Session keeps audio alive on lock-screen
- *   • Equaliser draws while an audio track plays and page is visible
- *   • INTRO_TEXT banner injected by the server
- * ─────────────────────────────────────────── */
-
 import React, { useEffect, useState, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import Header from "../../../components/Header.jsx";
 import api from "../api.js";
 
-/* helpers -------------------------------------------------- */
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
 const crumbs = (rel = "") =>
-  rel
-    .split("/")
-    .filter(Boolean)
-    .map((n, i) => ({
-      name: n,
-      path: rel.split("/").slice(0, i + 1).join("/"),
-    }));
+  rel.split("/").filter(Boolean).map((n, i) => ({
+    name: n,
+    path: rel.split("/").slice(0, i + 1).join("/"),
+  }));
 
-/* recognised extensions */
 const AUDIO_RE = /\.(mp3|m4a)$/i;
 const VIDEO_RE = /\.(mp4|webm|og[gv]|mkv|mov)$/i;
 const GIF_RE   = /\.gif$/i;
 
 export default function MediaBrowser() {
-  const introText =
-    window.ENV_INTRO_TEXT ?? import.meta.env.VITE_INTRO_TEXT ?? "";
+  // state for intro markdown
+  const [introText, setIntroText] = useState("");
+
+  // load intro.md from your mounted ConfigMap via server
+  useEffect(() => {
+    fetch("/config/intro.md")
+      .then((r) => (r.ok ? r.text() : ""))
+      .then(setIntroText)
+      .catch(() => setIntroText(""));
+  }, []);
 
   const [dir, setDir]   = useState({ path: "", directories: [], files: [] });
   const [playlist, set] = useState([]);
-
-  const [playIdx,  setIdx]  = useState(-1);
-  const [userInit, setUI ]  = useState(false);
-  const [mode,     setMode] = useState("sequential"); // none|sequential|shuffle|repeatOne
+  const [playIdx, setIdx] = useState(-1);
+  const [userInit, setUI ] = useState(false);
+  const [mode, setMode]    = useState("sequential");
   const playing = playIdx >= 0 ? playlist[playIdx] : null;
 
   const isAudio = playing && AUDIO_RE.test(playing);
   const isVideo = playing && VIDEO_RE.test(playing);
   const isGif   = playing && GIF_RE.test(playing);
 
-  const audioRef = useRef(null);
-  const videoRef = useRef(null);
+  const audioRef  = useRef(null);
+  const videoRef  = useRef(null);
   const canvasRef = useRef(null);
   const audioCtx  = useRef(null);
   const analyser  = useRef(null);
@@ -54,20 +46,13 @@ export default function MediaBrowser() {
   const drawing   = useRef(false);
 
   const [loading, setLoading] = useState(true);
-  const [err,     setErr]     = useState("");
+  const [err, setErr]         = useState("");
 
   const load = (p = "") => {
     setLoading(true);
-    api
-      .list(p)
-      .then((d) => {
-        setDir(d);
-        setLoading(false);
-      })
-      .catch((e) => {
-        setErr(e.message);
-        setLoading(false);
-      });
+    api.list(p)
+      .then((d) => { setDir(d); setLoading(false); })
+      .catch((e) => { setErr(e.message); setLoading(false); });
   };
   useEffect(() => load(""), []);
 
@@ -75,7 +60,6 @@ export default function MediaBrowser() {
     const list = dir.files
       .filter((f) => AUDIO_RE.test(f) || VIDEO_RE.test(f) || GIF_RE.test(f))
       .map((f) => (dir.path ? `${dir.path}/${f}` : f));
-
     set(list);
     setIdx(list.length ? 0 : -1);
     setUI(false);
@@ -84,27 +68,23 @@ export default function MediaBrowser() {
   function startTrack(i) {
     audioRef.current?.pause();
     videoRef.current?.pause();
-
     setIdx(i);
     setUI(true);
-
     setTimeout(() => {
       if (AUDIO_RE.test(playlist[i])) {
         audioRef.current?.play().catch(() => {});
       } else if (VIDEO_RE.test(playlist[i])) {
         videoRef.current?.play().catch(() => {});
       }
-      // no play() needed for <img>
     }, 0);
   }
 
   useEffect(() => {
     if (!userInit || !playing) return;
     const ref = isAudio ? audioRef.current : videoRef.current;
-    if (isAudio || isVideo) {
-      ref?.play().catch(() => {});
-    }
+    if (isAudio || isVideo) ref?.play().catch(() => {});
   }, [playIdx, userInit, playing]);
+
 
   function startEq() {
     if (!isAudio || drawing.current || !analyser.current) return;
@@ -161,6 +141,7 @@ export default function MediaBrowser() {
     render();
   }
 
+
   useEffect(() => {
     const handleVis = () => {
       if (document.visibilityState === "visible") {
@@ -177,8 +158,8 @@ export default function MediaBrowser() {
       window.removeEventListener("focus", handleVis);
     };
   }, []);
-
   useEffect(() => () => stopEq(), []);
+
 
   function onEnded() {
     if (mode === "repeatOne") {
@@ -200,6 +181,7 @@ export default function MediaBrowser() {
     }
   }
 
+
   return (
     <>
       <Header />
@@ -209,6 +191,7 @@ export default function MediaBrowser() {
           <ReactMarkdown>{introText}</ReactMarkdown>
         </section>
       )}
+
 
       <main>
         <section className="card player-box">
