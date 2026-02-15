@@ -1,6 +1,13 @@
 import React, { useEffect, useState, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import Header from "../../../components/Header.jsx";
+import AudioPlayer from "../../../components/AudioPlayer.jsx";
+import PlaybackModeBar from "../../../components/PlaybackModeBar.jsx";
+import TrackList from "../../../components/TrackList.jsx";
+import FolderGrid from "../../../components/FolderGrid.jsx";
+import Lightbox from "../../../components/Lightbox.jsx";
+import { SkeletonTracks, SkeletonFolders } from "../../../components/SkeletonLoader.jsx";
+import { IconChevronRight } from "../../../components/icons.jsx";
 import api from "../api.js";
 
 const enc = (p) => p.split("/").map(encodeURIComponent).join("/");
@@ -8,18 +15,15 @@ const crumbs = (rel = "") =>
   rel
     .split("/")
     .filter(Boolean)
-    .map((n, i) => ({ name: n, path: rel.split("/").slice(0, i + 1).join("/"), }));
+    .map((n, i) => ({ name: n, path: rel.split("/").slice(0, i + 1).join("/") }));
 
 const AUDIO_RE = /\.(mp3|m4a)$/i;
 const VIDEO_RE = /\.(mp4|webm|og[gv]|mkv|mov)$/i;
 const GIF_RE   = /\.gif$/i;
 
 export default function MediaBrowser() {
-  // Intro markdown
   const [introText, setIntroText] = useState("");
-  // Playback mode state
   const [mode, setMode] = useState("sequential");
-  // User interaction flag to enable autoplay
   const [userInit, setUserInit] = useState(false);
 
   useEffect(() => {
@@ -29,9 +33,7 @@ export default function MediaBrowser() {
       .catch(() => setIntroText(""));
   }, []);
 
-  // Directory listing state
   const [dir, setDir] = useState({ path: "", directories: [], files: [] });
-  // Playlist (playable files)
   const [playlist, setPlaylist] = useState([]);
   const [playIdx, setIdx] = useState(-1);
   const playing = playIdx >= 0 ? playlist[playIdx] : null;
@@ -40,10 +42,8 @@ export default function MediaBrowser() {
   const isVideo = playing && VIDEO_RE.test(playing);
   const isGif   = playing && GIF_RE.test(playing);
 
-  // Refs for media elements & analyser
   const audioRef  = useRef(null);
   const videoRef  = useRef(null);
-  const gifRef    = useRef(null);
   const canvasRef = useRef(null);
   const audioCtx  = useRef(null);
   const analyser  = useRef(null);
@@ -54,7 +54,6 @@ export default function MediaBrowser() {
   const [err, setErr]         = useState("");
   const [lightbox, setLightbox] = useState(false);
 
-  // Load directory from API
   const load = (p = "") => {
     setLoading(true);
     api.list(p)
@@ -63,7 +62,6 @@ export default function MediaBrowser() {
   };
   useEffect(() => load(""), []);
 
-  // Build playlist whenever dir changes
   useEffect(() => {
     const list = dir.files
       .filter((f) => AUDIO_RE.test(f) || VIDEO_RE.test(f) || GIF_RE.test(f))
@@ -73,42 +71,24 @@ export default function MediaBrowser() {
     setUserInit(false);
   }, [dir]);
 
-  // Handle autoplay after track change
   useEffect(() => {
     if (!userInit || !playing) return;
-    const ref = isAudio ? audioRef.current : videoRef.current;
-    ref?.play().catch(() => {});
+    if (isAudio) audioRef.current?.play().catch(() => {});
+    else if (isVideo) videoRef.current?.play().catch(() => {});
   }, [playIdx, userInit, playing]);
 
-  // Start a track on user click
   function startTrack(i) {
     audioRef.current?.pause();
     videoRef.current?.pause();
     setIdx(i);
     setUserInit(true);
     setTimeout(() => {
-      if (AUDIO_RE.test(playlist[i])) {
-        audioRef.current?.play().catch(() => {});
-      } else if (VIDEO_RE.test(playlist[i])) {
-        videoRef.current?.play().catch(() => {});
-      }
+      if (AUDIO_RE.test(playlist[i])) audioRef.current?.play().catch(() => {});
+      else if (VIDEO_RE.test(playlist[i])) videoRef.current?.play().catch(() => {});
     }, 0);
   }
 
-  useEffect(() => {
-    if (!userInit || !playing) return;
-    const ref = isAudio ? audioRef.current : videoRef.current;
-    if (isAudio || isVideo) ref?.play().catch(() => {});
-  }, [playIdx, userInit, playing]);
-
-  // Fullscreen handler for GIF
-  function handleGifClick() {
-    if (gifRef.current && document.fullscreenEnabled) {
-      gifRef.current.requestFullscreen().catch(() => {});
-    }
-  }
-
-  // Equaliser & analyser logic
+  /* ── Equaliser ── */
   function startEq() {
     if (!isAudio || drawing.current || !analyser.current) return;
     drawing.current = true;
@@ -144,17 +124,57 @@ export default function MediaBrowser() {
       canvas.height = cssH * dpr;
     }
     const ctx    = canvas.getContext("2d");
-    ctx.scale(dpr, dpr);
     const buffer = new Uint8Array(analyser.current.frequencyBinCount);
-    const barW   = cssW / buffer.length;
+    const maxBars = 64;
+    const gap = 2;
+
     const render = () => {
       analyser.current.getByteFrequencyData(buffer);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, cssW, cssH);
-      buffer.forEach((v, i) => {
-        const h = (v / 255) * cssH;
-        ctx.fillStyle = "#3b82f6";
-        ctx.fillRect(i * barW, cssH - h, barW - 1, h);
-      });
+
+      const step = Math.max(1, Math.floor(buffer.length / maxBars));
+      const barCount = Math.min(maxBars, Math.floor(buffer.length / step));
+      const barW = (cssW - (barCount - 1) * gap) / barCount;
+      const halfH = cssH * 0.7;
+
+      const grad = ctx.createLinearGradient(0, cssH, 0, 0);
+      grad.addColorStop(0, getComputedStyle(document.documentElement).getPropertyValue("--accent-1").trim() || "#6366f1");
+      grad.addColorStop(0.5, getComputedStyle(document.documentElement).getPropertyValue("--accent-2").trim() || "#8b5cf6");
+      grad.addColorStop(1, getComputedStyle(document.documentElement).getPropertyValue("--accent-3").trim() || "#a855f7");
+
+      ctx.shadowColor = "rgba(139, 92, 246, 0.4)";
+      ctx.shadowBlur = 8;
+
+      for (let i = 0; i < barCount; i++) {
+        const v = buffer[i * step] / 255;
+        const h = v * halfH;
+        const x = i * (barW + gap);
+        const y = halfH - h;
+
+        ctx.fillStyle = grad;
+        if (ctx.roundRect) {
+          ctx.beginPath();
+          ctx.roundRect(x, y, barW, h, [3, 3, 0, 0]);
+          ctx.fill();
+        } else {
+          ctx.fillRect(x, y, barW, h);
+        }
+      }
+
+      // Reflection
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 0.15;
+      for (let i = 0; i < barCount; i++) {
+        const v = buffer[i * step] / 255;
+        const h = v * halfH;
+        const x = i * (barW + gap);
+
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, halfH + 2, barW, h * 0.4);
+      }
+      ctx.globalAlpha = 1;
+
       rafId.current = requestAnimationFrame(render);
     };
     render();
@@ -177,16 +197,11 @@ export default function MediaBrowser() {
     };
   }, []);
   useEffect(() => () => stopEq(), []);
-  // Handle track end
+
   function onEnded() {
     if (mode === "repeatOne") {
-      if (isAudio) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play();
-      } else if (isVideo) {
-        videoRef.current.currentTime = 0;
-        videoRef.current.play();
-      }
+      if (isAudio) { audioRef.current.currentTime = 0; audioRef.current.play(); }
+      else if (isVideo) { videoRef.current.currentTime = 0; videoRef.current.play(); }
       return;
     }
     if (!playlist.length || mode === "none") return;
@@ -197,165 +212,133 @@ export default function MediaBrowser() {
     }
   }
 
+  const breadcrumbItems = crumbs(dir.path);
+
   return (
     <>
       <Header />
 
       {introText && (
-        <section className="card intro-text" style={{ margin: "1rem" }}>
+        <section className="card intro-text">
           <ReactMarkdown>{introText}</ReactMarkdown>
         </section>
       )}
 
       <main>
+        {/* Player */}
         <section className="card player-box">
           {playing ? (
             <>
-              <p style={{ wordBreak: "break-all", marginBottom: "0.6rem" }}>{playing}</p>
+              <p className="player-filename">{playing.split("/").pop()}</p>
 
-              {/* Playback mode */}
               {playlist.length > 1 && (
-                <>
-                  <label style={{ fontWeight: 600, marginRight: 6 }}>Playback mode:</label>
-                  <select
-                    value={mode}
-                    onChange={(e) => setMode(e.target.value)}
-                    style={{ marginBottom: "0.8rem" }}
-                  >
-                    <option value="none">No autoplay</option>
-                    <option value="sequential">Autoplay next</option>
-                    <option value="shuffle">Shuffle</option>
-                    <option value="repeatOne">Repeat one</option>
-                  </select>
-                </>
+                <PlaybackModeBar mode={mode} onModeChange={setMode} />
               )}
 
-              {/* Audio */}
               {isAudio && (
-                <audio ref={audioRef} src={`/media/${enc(playing)}`} controls style={{ width: "100%" }} onPlay={ensureAnalyser} onEnded={onEnded} />
+                <AudioPlayer
+                  audioRef={audioRef}
+                  src={`/media/${enc(playing)}`}
+                  onPlay={ensureAnalyser}
+                  onEnded={onEnded}
+                  onPrev={playIdx > 0 ? () => startTrack(playIdx - 1) : undefined}
+                  onNext={playIdx < playlist.length - 1 ? () => startTrack(playIdx + 1) : undefined}
+                  hasPrev={playIdx > 0}
+                  hasNext={playIdx < playlist.length - 1}
+                />
               )}
 
-              {/* Video */}
               {isVideo && (
-                <video ref={videoRef} src={`/media/${enc(playing)}`} controls style={{ maxWidth: "100%", maxHeight: "60vh" }} onEnded={onEnded} />
+                <video
+                  ref={videoRef}
+                  src={`/media/${enc(playing)}`}
+                  controls
+                  className="video-player"
+                  onEnded={onEnded}
+                />
               )}
 
-              {/* GIF fullscreen */}
               {isGif && (
                 <img
                   src={`/media/${enc(playing)}`}
                   alt={playing}
-                  style={{ cursor: "pointer", maxWidth: "100%", maxHeight: "60vh", width: "auto", height: "auto" }}
+                  className="gif-player"
                   onClick={() => setLightbox(true)}
                 />
               )}
 
-              {lightbox && (
-                <div
-                  onClick={() => setLightbox(false)}
-                  style={{
-                    position: "fixed",
-                    top: 0, left: 0, right: 0, bottom: 0,
-                    background: "rgba(0,0,0,0.9)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    zIndex: 1000,
-                  }}
-                >
-                  <img
-                    src={`/media/${enc(playing)}`}
-                    style={{ maxWidth: "100%", maxHeight: "100%" }}
-                  />
-                </div>
+              {lightbox && isGif && (
+                <Lightbox
+                  src={`/media/${enc(playing)}`}
+                  alt={playing}
+                  onClose={() => setLightbox(false)}
+                />
               )}
 
-
-              {/* Equaliser */}
-              {isAudio && <canvas ref={canvasRef} className="eq-canvas" />}               
+              {isAudio && <canvas ref={canvasRef} className="eq-canvas" />}
             </>
           ) : (
-            <p><em>No playable media files in this folder</em></p>
+            <p className="empty-state">No playable media files in this folder</p>
           )}
         </section>
 
         {/* Library */}
-        {playlist.length > 1 && (
+        {(playlist.length > 1 || dir.directories.length > 0) && (
           <section className="card" style={{ maxWidth: 900 }}>
-            <h2 style={{ marginTop: 0 }}>Media library</h2>
+            <h2 className="section-title">Media library</h2>
 
             {/* Breadcrumbs */}
             {(dir.path || dir.directories.length > 0) && (
-              <div style={{ marginBottom: "1rem" }}>
-                <strong>Path:&nbsp;</strong>
-                <button className="crumb-btn" onClick={() => load("/")}>/
-                </button>
-                {crumbs(dir.path).map((c) => (
-                  <button
-                    key={c.path}
-                    className="crumb-btn"
-                    onClick={() => load(c.path)}
-                  >
-                    {c.name}
-                  </button>
+              <nav className="breadcrumb-bar">
+                <button className="crumb-btn" onClick={() => load("/")}>/</button>
+                {breadcrumbItems.map((c, i) => (
+                  <React.Fragment key={c.path}>
+                    <span className="crumb-separator">
+                      <IconChevronRight size={14} />
+                    </span>
+                    <button
+                      className={`crumb-btn${i === breadcrumbItems.length - 1 ? " crumb-current" : ""}`}
+                      onClick={() => load(c.path)}
+                    >
+                      {c.name}
+                    </button>
+                  </React.Fragment>
                 ))}
-              </div>
+              </nav>
             )}
 
-            {/* Loading & error */}
-            {loading && <p>Loading…</p>}
-            {err && <p style={{ color: "red" }}>{err}</p>}
-
-            {/* Folders */}
-            {!loading && !err && dir.directories.length > 0 && (
+            {/* Loading */}
+            {loading && (
               <>
-                <h3>Folders</h3>
-                <div className="scroll-list">
-                  <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                    {dir.directories.map((d) => (
-                      <li key={d}>
-                        📁{' '}
-                        <button
-                          className="crumb-btn"
-                          onClick={() =>
-                            load(dir.path ? `${dir.path}/${d}` : d)
-                          }
-                        >
-                          {d}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                <SkeletonFolders count={4} />
+                <SkeletonTracks count={5} />
               </>
             )}
 
-            {/* File list */}
-            {!loading && !err && (
+            {err && <p style={{ color: "#ef4444" }}>{err}</p>}
+
+            {/* Folders */}
+            {!loading && !err && dir.directories.length > 0 && (
+              <FolderGrid
+                directories={dir.directories}
+                onNavigate={(d) => load(dir.path ? `${dir.path}/${d}` : d)}
+              />
+            )}
+
+            {/* Tracks */}
+            {!loading && !err && playlist.length > 0 && (
               <div className="scroll-list">
-                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                  {playlist.map((rel, i) => (
-                    <li key={rel}>
-                      {AUDIO_RE.test(rel)
-                        ? '🎵'
-                        : GIF_RE.test(rel)
-                        ? '🖼️'
-                        : '🎬'}{' '}
-                      <button
-                        className="crumb-btn"
-                        onClick={() => startTrack(i)}
-                      >
-                        {rel.split("/").pop()}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <TrackList
+                  playlist={playlist}
+                  playIdx={playIdx}
+                  onSelect={startTrack}
+                />
               </div>
             )}
 
-            {/* Empty folder */}
+            {/* Empty */}
             {!loading && !err && dir.directories.length === 0 && playlist.length === 0 && (
-              <p><em>Folder is empty.</em></p>
+              <p className="empty-state">Folder is empty.</p>
             )}
           </section>
         )}

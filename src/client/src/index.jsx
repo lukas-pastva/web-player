@@ -10,7 +10,7 @@ import AppRoutes      from "./routes.jsx";
  * TONE   (colour-scheme)  → ENV_TONE   or  VITE_TONE
  * ------------------------------------------------------------- */
 const STYLE = window.ENV_STYLE ?? import.meta.env.VITE_STYLE ?? "boy";   // blue = default
-const TONE  = window.ENV_TONE  ?? import.meta.env.VITE_TONE  ?? "light"; // light = default
+const TONE  = window.ENV_TONE  ?? import.meta.env.VITE_TONE  ?? "dark";  // dark = default
 
 /* ──────────────────────────────
  * Dynamic page title
